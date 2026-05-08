@@ -1,20 +1,26 @@
 {
-  "name": "auth-js",
-  "version": "1.0.0",
-  "description": "",
+  "name": "@oneuid/auth-js",
+  "version": "0.1.0",
+  "description": "Headless Authentication SDK for UID.ONE Personal OS",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
-    "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "packageManager": "pnpm@10.26.2",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "tsc --noEmit"
+  },
+  "author": "UID.ONE",
+  "license": "MIT",
   "devDependencies": {
-    "tsup": "^8.5.1",
-    "typescript": "^6.0.3"
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.3"
   }
 }
