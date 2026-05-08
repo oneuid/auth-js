@@ -41,6 +41,30 @@ export class OneUID {
     return data;
   }
 
+  /**
+   * Logs in using a third-party provider's token (e.g. Google ID Token)
+   */
+  async loginWithProvider(provider: string, token: string): Promise<TokenResponse> {
+    const response = await fetch(`${this.config.baseURL}/api/v1/auth/social-login/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider,
+        token,
+        client_id: this.config.clientId,
+        client_secret: this.config.clientSecret
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Social login failed: ${response.statusText}`);
+    }
+
+    const data: TokenResponse = await response.json();
+    await this.persistTokens(data);
+    return data;
+  }
+
   async logout(): Promise<void> {
     const token = await this.storage.getItem(this.TOKEN_KEY);
     
