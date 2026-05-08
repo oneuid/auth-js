@@ -45,7 +45,7 @@ export class OneUID {
    * Logs in using a third-party provider's token (e.g. Google ID Token)
    */
   async loginWithProvider(provider: string, token: string): Promise<TokenResponse> {
-    const response = await fetch(`${this.config.baseURL}/api/v1/auth/social-login/`, {
+    const response = await fetch(`${this.config.baseURL}/v1/auth/social-login/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -90,7 +90,7 @@ export class OneUID {
     const token = await this.getAccessToken();
     if (!token) throw new Error("Not authenticated");
 
-    const response = await fetch(`${this.config.baseURL}/api/v1/auth/me/`, {
+    const response = await fetch(`${this.config.baseURL}/v1/auth/me/`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
