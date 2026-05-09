@@ -65,6 +65,57 @@ export class OneUID {
     return data;
   }
 
+  /**
+   * Registers a new user
+   */
+  async register(email: string, password: string, recaptcha?: string): Promise<any> {
+    const response = await fetch(`${this.config.baseURL}/v1/auth/register/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        email, 
+        password,
+        recaptcha,
+        client_id: this.config.clientId 
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.error || `Registration failed: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Refreshes the access token using a refresh token
+   */
+  async refreshToken(refreshToken: string): Promise<TokenResponse> {
+    const formData = new URLSearchParams();
+    formData.append('grant_type', 'refresh_token');
+    formData.append('refresh_token', refreshToken);
+    formData.append('client_id', this.config.clientId);
+    
+    if (this.config.clientSecret) {
+      formData.append('client_secret', this.config.clientSecret);
+    }
+
+    const response = await fetch(`${this.config.baseURL}/o/token/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString()
+    });
+
+    if (!response.ok) {
+      throw new Error(`Refresh failed: ${response.statusText}`);
+    }
+
+    const data: TokenResponse = await response.json();
+    await this.persistTokens(data);
+    return data;
+  }
+
   async logout(): Promise<void> {
     const token = await this.storage.getItem(this.TOKEN_KEY);
     
@@ -99,6 +150,26 @@ export class OneUID {
     }
 
     return response.json();
+  }
+
+  /**
+   * Deletes the current user's account permanently.
+   */
+  async deleteAccount(): Promise<void> {
+    const token = await this.getAccessToken();
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${this.config.baseURL}/v1/auth/me/`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.error || `Failed to delete account: ${response.statusText}`);
+    }
+
+    await this.clearTokens();
   }
 
   async getAccessToken(): Promise<string | null> {

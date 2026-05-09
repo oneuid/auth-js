@@ -1,0 +1,28 @@
+<svg viewBox="0 0 850 250" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- UID Tech Gradient -->
+    <linearGradient id="uidGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563FF"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+
+  <!-- "UID" Bold -->
+  <text x="20" y="190"
+        font-family="system-ui, -apple-system, sans-serif"
+        font-size="220"
+        font-weight="800"
+        letter-spacing="-4"
+        fill="#0F172A">UID</text>
+
+  <!-- The Gradient Dot (Giảm bán kính xuống 24, căn giữa hoàn hảo) -->
+  <circle cx="415" cy="166" r="24" fill="url(#uidGradient)"/>
+
+  <!-- "one" Light (Kéo x dịch vào 450 để ôm sát dấu chấm) -->
+  <text x="450" y="190"
+        font-family="system-ui, -apple-system, sans-serif"
+        font-size="190"
+        font-weight="300"
+        letter-spacing="-2"
+        fill="#0F172A">one</text>
+</svg>

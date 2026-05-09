@@ -1,17 +1,22 @@
 {
   "name": "@oneuid-auth-js/core",
-  "version": "0.1.1",
+  "version": "0.1.4",
   "description": "Headless Authentication SDK for UID.ONE Personal OS",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
+      "require": "./dist/index.js"
+    },
+    "./assets/*": "./assets/*"
   },
+  "files": [
+    "dist",
+    "assets"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
