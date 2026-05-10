@@ -1,5 +1,8 @@
 import { AuthConfig, StorageAdapter, TokenResponse, UserProfile } from './types';
 import { getDefaultStorage } from './storage';
+import { PasskeyClient } from './passkey';
+import { SessionClient } from './session';
+import { RecoveryClient } from './recovery';
 
 export class OneUID {
   private config: AuthConfig;
@@ -7,9 +10,17 @@ export class OneUID {
   private readonly TOKEN_KEY = 'oneuid_access_token';
   private readonly REFRESH_KEY = 'oneuid_refresh_token';
 
+  public passkey: PasskeyClient;
+  public session: SessionClient;
+  public recovery: RecoveryClient;
+
   constructor(config: AuthConfig, storage?: StorageAdapter) {
     this.config = config;
     this.storage = storage || getDefaultStorage();
+    
+    this.passkey = new PasskeyClient(this.config, this);
+    this.session = new SessionClient(this.config, this);
+    this.recovery = new RecoveryClient(this.config, this);
   }
 
   /**
@@ -153,23 +164,12 @@ export class OneUID {
   }
 
   /**
-   * Deletes the current user's account permanently.
+   * Disconnects the user from this application by revoking the access token.
+   * Note: This does NOT delete the user's global UID.ONE account.
+   * You should delete the local Shadow Profile in your application before calling this.
    */
-  async deleteAccount(): Promise<void> {
-    const token = await this.getAccessToken();
-    if (!token) throw new Error("Not authenticated");
-
-    const response = await fetch(`${this.config.baseURL}/v1/auth/me/`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.error || `Failed to delete account: ${response.statusText}`);
-    }
-
-    await this.clearTokens();
+  async disconnect(): Promise<void> {
+    await this.logout();
   }
 
   async getAccessToken(): Promise<string | null> {
@@ -178,14 +178,14 @@ export class OneUID {
     return this.storage.getItem(this.TOKEN_KEY);
   }
 
-  private async persistTokens(data: TokenResponse) {
+  public async persistTokens(data: TokenResponse) {
     await this.storage.setItem(this.TOKEN_KEY, data.access_token);
     if (data.refresh_token) {
       await this.storage.setItem(this.REFRESH_KEY, data.refresh_token);
     }
   }
 
-  private async clearTokens() {
+  public async clearTokens() {
     await this.storage.removeItem(this.TOKEN_KEY);
     await this.storage.removeItem(this.REFRESH_KEY);
   }
