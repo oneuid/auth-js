@@ -40,7 +40,10 @@ export class PasskeyClient {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify(authResp)
+      body: JSON.stringify({
+        credential: authResp,
+        device_name: name
+      })
     });
 
     if (!verifyRes.ok) {
@@ -76,7 +79,8 @@ export class PasskeyClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...authResp,
+        auth_session_id: options.auth_session_id,
+        credential: authResp,
         client_id: this.config.clientId
       })
     });
