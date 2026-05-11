@@ -8,6 +8,7 @@ export interface TokenResponse {
 
 export interface UserProfile {
   id: string;
+  uid: string;
   email: string;
   username: string;
   first_name: string;
