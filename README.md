@@ -4,21 +4,19 @@
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-**@oneuid-auth-js/core** is the official headless authentication SDK for the **UID.ONE** Personal OS and Identity Ecosystem. 
+**@oneuid-auth-js/core** is the official headless authentication SDK for the **UID.ONE** Sovereign Identity Ecosystem.
 
-Designed for maximum flexibility, this SDK provides a headless authentication client that works seamlessly across modern web applications (React, Vue, Svelte, Next.js) and mobile frameworks (React Native) by relying on a pluggable storage architecture.
+Designed for maximum flexibility, this SDK provides a headless authentication client that works seamlessly across modern web applications (React, Vue, Next.js) and mobile frameworks (React Native, Expo) by relying on a pluggable storage architecture.
 
 ## ✨ Features
 
 - **Headless Architecture:** No forced UI components. Bring your own design system.
-- **Isomorphic & Universal:** Works in Browser, Node.js, and Mobile environments.
+- **Passkey (FIDO2) First:** Full support for passwordless authentication via biometric passkeys.
+- **Cross-Device Sessions (QR):** Seamlessly authenticate across devices using QR codes.
 - **Pluggable Storage Adapters:** Built-in `LocalStorageAdapter` and `MemoryStorageAdapter`. Easily write your own adapter for `AsyncStorage` (React Native) or Secure Enclaves.
-- **Social Token Exchange:** Securely exchange Google, Facebook, or Apple tokens for UID.ONE credentials.
-- **TypeScript First:** 100% strongly typed with full autocompletion support.
+- **Ecosystem Session Exchange:** Securely exchange UID.ONE tokens for local shadow profile sessions in your applications (e.g., Trip.Express).
 
 ## 📦 Installation
-
-Install the package via your favorite package manager:
 
 ```bash
 npm install @oneuid-auth-js/core
@@ -32,7 +30,7 @@ pnpm add @oneuid-auth-js/core
 
 ### 1. Initialization
 
-Create a singleton instance of the `OneUID` client. By default, it will use `MemoryStorageAdapter` if `window` is undefined, and `LocalStorageAdapter` in the browser.
+Create a singleton instance of the `OneUID` client. By default, it uses `MemoryStorageAdapter` if `window` is undefined, and `LocalStorageAdapter` in the browser.
 
 ```typescript
 import { OneUID } from '@oneuid-auth-js/core';
@@ -43,54 +41,82 @@ export const auth = new OneUID({
 });
 ```
 
-### 2. Standard Login (Email/Password)
+### 2. Passwordless Authentication (Passkey)
 
-Authenticate users using standard credentials. The SDK automatically manages the Access and Refresh tokens.
+UID.ONE defaults to Sovereign Identity (Passwordless).
+
+```typescript
+// 1. Fetch Challenge
+const options = await auth.passkey.login.getOptions();
+
+// 2. Trigger OS Biometrics (FaceID/TouchID)
+const credential = await navigator.credentials.get({ publicKey: options.publicKey });
+
+// 3. Verify and Issue Token
+const session = await auth.passkey.login.verify({
+  auth_session_id: options.auth_session_id,
+  credential: credential
+});
+
+console.log('Passkey login successful!', session.access_token);
+```
+
+### 3. Application Integration (Session Exchange Pattern)
+
+For ecosystem applications (like `Trip.Express` or local Agents), you should not rely solely on the UID.ONE token. Instead, use the SDK to get the UID.ONE Identity Token, and exchange it with your own backend to issue a local HTTP-Only Session Cookie.
+
+**Frontend (Client Component):**
+```typescript
+// Get token via Passkey, Social, or Email/Password
+const uidToken = session.access_token;
+
+// Send to your App's backend for Session Exchange
+await fetch('/api/auth/social', {
+    method: 'POST',
+    body: JSON.stringify({ provider: 'one', token: uidToken })
+});
+```
+
+**Backend (Next.js Server Action / API Route):**
+```typescript
+import { OneUID } from '@oneuid-auth-js/core';
+
+export async function exchangeTokenForSession(provider: string, token: string) {
+    if (provider === "one" || provider === "uid.one") {
+        const auth = new OneUID({
+            baseURL: process.env.UID_ONE_API_URL,
+            clientId: process.env.UID_ONE_CLIENT_ID,
+        });
+        
+        // 1. Verify the incoming token with UID.ONE
+        const data = await auth.loginWithProvider("uid.one", token);
+        const exchangeToken = data.id_token || data.access_token;
+        
+        // 2. Sync Shadow Profile & Issue Local Session
+        const localUser = await syncShadowProfileWithDatabase(exchangeToken);
+        await createLocalHttpOnlySession(localUser);
+        
+        return { success: true };
+    }
+}
+```
+
+### 4. Standard Login (Email/Password) - Legacy Fallback
+
+Authenticate users using standard credentials if they haven't migrated to Passkeys yet.
 
 ```typescript
 try {
-  await auth.login('user@trip.express', 'supersecretpassword');
-  console.log('Login successful!');
+  const data = await auth.loginWithPassword('user@trip.express', 'supersecretpassword');
+  console.log('Login successful!', data.access_token);
 } catch (error) {
   console.error('Login failed:', error);
 }
 ```
 
-### 3. Fetching User Data
+## 🛠 Advanced: Custom Storage Adapters (React Native)
 
-Once authenticated, retrieve the securely verified identity of the current user.
-
-```typescript
-const user = await auth.getMe();
-console.log('Welcome back,', user.first_name);
-```
-
-### 4. Logging Out
-
-Securely clear local storage and terminate the session.
-
-```typescript
-await auth.logout();
-```
-
-## 🔗 Social Login (OIDC Token Exchange)
-
-UID.ONE supports headless social authentication. Instead of redirecting users away from your app, simply retrieve an ID Token from your provider (e.g., Google Identity Services) and exchange it for a UID.ONE session.
-
-```typescript
-// 1. Get the token from Google (using Google SDK or similar)
-const googleIdToken = "eyJhbGciOiJSUzI1..."; 
-
-// 2. Exchange the token with UID.ONE
-await auth.loginWithProvider('google', googleIdToken);
-
-// 3. User is now authenticated globally!
-const user = await auth.getMe();
-```
-
-## 🛠 Advanced: Custom Storage Adapters
-
-If you are building for React Native or prefer an encrypted local storage, you can inject a custom `StorageAdapter` during initialization.
+If you are building for React Native or Expo, you can inject a custom `StorageAdapter` during initialization.
 
 ```typescript
 import { OneUID, StorageAdapter } from '@oneuid-auth-js/core';
