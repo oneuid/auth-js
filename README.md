@@ -74,24 +74,28 @@ await fetch('/api/auth/social', {
 
 **Backend (Next.js Server Action / API Route):**
 ```typescript
-import { OneUID } from '@oneuid-auth-js/core';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 
-export async function exchangeTokenForSession(provider: string, token: string) {
-    if (provider === "one" || provider === "uid.one") {
-        const auth = new OneUID({
-            baseURL: process.env.UID_ONE_API_URL,
-            clientId: process.env.UID_ONE_CLIENT_ID,
+export async function verifyUidSession(token: string) {
+    try {
+        // 1. Fetch the JWKS from UID.ONE to verify the token asynchronously
+        const jwksUrl = new URL(`${process.env.UID_ONE_API_URL}/.well-known/jwks.json`);
+        const JWKS = createRemoteJWKSet(jwksUrl);
+        
+        // 2. Verify the Token Signature
+        const { payload } = await jwtVerify(token, JWKS, {
+            issuer: process.env.UID_ONE_API_URL,
+            audience: process.env.UID_ONE_CLIENT_ID,
         });
         
-        // 1. Verify the incoming token with UID.ONE
-        const data = await auth.loginWithProvider("uid.one", token);
-        const exchangeToken = data.id_token || data.access_token;
-        
-        // 2. Sync Shadow Profile & Issue Local Session
-        const localUser = await syncShadowProfileWithDatabase(exchangeToken);
+        // 3. Sync Shadow Profile & Issue Local Session
+        const localUser = await syncShadowProfileWithDatabase(payload.sub, payload.email);
         await createLocalHttpOnlySession(localUser);
         
         return { success: true };
+    } catch (error) {
+        console.error("Token verification failed:", error);
+        return { success: false };
     }
 }
 ```
