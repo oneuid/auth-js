@@ -46,34 +46,29 @@ export const auth = new OneUID({
 UID.ONE defaults to Sovereign Identity (Passwordless).
 
 ```typescript
-// 1. Fetch Challenge
-const options = await auth.passkey.login.getOptions();
-
-// 2. Trigger OS Biometrics (FaceID/TouchID)
-const credential = await navigator.credentials.get({ publicKey: options.publicKey });
-
-// 3. Verify and Issue Token
-const session = await auth.passkey.login.verify({
-  auth_session_id: options.auth_session_id,
-  credential: credential
-});
-
-console.log('Passkey login successful!', session.access_token);
+// Triggers the OS Biometrics (FaceID/TouchID) and handles the full challenge-response loop securely
+try {
+  const session = await auth.passkey.login();
+  console.log('Passkey login successful!', session.access_token);
+} catch (error) {
+  console.error('Passkey authentication failed:', error);
+}
 ```
 
 ### 3. Application Integration (Session Exchange Pattern)
 
-For ecosystem applications (like `Trip.Express` or local Agents), you should not rely solely on the UID.ONE token. Instead, use the SDK to get the UID.ONE Identity Token, and exchange it with your own backend to issue a local HTTP-Only Session Cookie.
+For ecosystem applications (like `Trip.Express` or local Agents), you should not rely solely on the UID.ONE token in the browser. Instead, use the SDK to get the UID.ONE Identity Token, and exchange it with your own backend to issue a local HTTP-Only Session Cookie.
 
 **Frontend (Client Component):**
 ```typescript
 // Get token via Passkey, Social, or Email/Password
-const uidToken = session.access_token;
+const session = await auth.passkey.login();
+const uidToken = `${session.access_token}:::${session.refresh_token || ""}`;
 
 // Send to your App's backend for Session Exchange
 await fetch('/api/auth/social', {
     method: 'POST',
-    body: JSON.stringify({ provider: 'one', token: uidToken })
+    body: JSON.stringify({ provider: 'passkey', token: uidToken })
 });
 ```
 
