@@ -21,6 +21,20 @@ export class OneUID {
     this.passkey = new PasskeyClient(this.config, this);
     this.session = new SessionClient(this.config, this);
     this.recovery = new RecoveryClient(this.config, this);
+
+    this.injectNativeMetaTag();
+  }
+
+  private injectNativeMetaTag() {
+    if (typeof document !== 'undefined' && typeof document.querySelector === 'function') {
+      const existing = document.querySelector('meta[name="uid-passkey-native"]');
+      if (!existing) {
+        const meta = document.createElement('meta');
+        meta.name = "uid-passkey-native";
+        meta.content = "true";
+        document.head.appendChild(meta);
+      }
+    }
   }
 
   /**
