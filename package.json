@@ -1,7 +1,7 @@
 {
   "name": "@oneuid-auth-js/core",
   "version": "0.1.7",
-  "description": "Headless Authentication SDK for UID.ONE Personal OS",
+  "description": "Headless Authentication SDK for UID.ONE AI OS",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
