@@ -13,6 +13,7 @@ Designed for maximum flexibility, this SDK provides a headless authentication cl
 - **Headless Architecture:** No forced UI components. Bring your own design system.
 - **Passkey (FIDO2) First:** Full support for passwordless authentication via biometric passkeys.
 - **Cross-Device Auth (QR):** Seamlessly authenticate across devices using Zero-Trust QR Challenges.
+- **Zero-Trust Digital Signatures:** Initiate and verify PKCS#7 document signatures without exposing the document payload to the server.
 - **Pluggable Storage Adapters:** Built-in `LocalStorageAdapter` and `MemoryStorageAdapter`. Easily write your own adapter for `AsyncStorage` (React Native) or Secure Enclaves.
 - **Ecosystem Session Exchange:** Securely exchange UID.ONE tokens for local shadow profile sessions in your applications (e.g., Trip.Express).
 
