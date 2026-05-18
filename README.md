@@ -140,6 +140,21 @@ const auth = new OneUID({
 });
 ```
 
+## 🧩 Browser Extension Compatibility
+
+The UID.ONE Browser Extension is designed to upgrade legacy applications that do not natively support Passkeys. If you are integrating this SDK into your application, your app is considered "Native".
+
+When you instantiate the `OneUID` client in a browser environment, the SDK automatically injects a `<meta name="uid-passkey-native" content="true">` tag into the document `<head>`. This signals the UID.ONE Browser Extension to **disable itself** on your domain to prevent UI conflicts (e.g., duplicate Passkey buttons or injected fingerprint icons).
+
+**For Next.js / Server-Side Rendering (SSR):**
+To prevent any UI flickering (FOUC) before the JavaScript SDK initializes, it is highly recommended to manually add the meta tag to your server-rendered HTML head (e.g., in `layout.tsx` or `index.html`):
+
+```html
+<head>
+  <meta name="uid-passkey-native" content="true" />
+</head>
+```
+
 ## 🛡 Security & Compliance
 
 When implementing this SDK in consumer-facing applications, ensure that you display the UID.ONE trust badge on your authentication screens. 
