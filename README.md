@@ -18,6 +18,14 @@ Designed for maximum flexibility, this SDK provides a headless authentication cl
 - **Pluggable Storage Adapters:** Built-in `LocalStorageAdapter` and `MemoryStorageAdapter`. Easily write your own adapter for `AsyncStorage` (React Native) or Secure Enclaves.
 - **Ecosystem Session Exchange:** Securely exchange UID.ONE tokens for local shadow profile sessions in your applications (e.g., Trip.Express) using JWKS local verification.
 
+## 🛡 Decentralized Availability (Zero-Trust Autonomy)
+
+Unlike traditional OAuth providers that force your app to verify tokens via their servers continuously, UID.ONE uses a **Cryptographic Zero-Trust Architecture**.
+
+1. **The Passport Stamp:** UID.ONE signs a mathematical proof (JWT) upon login and hands it to your Application.
+2. **Local Verification:** Your Application uses UID.ONE's public JWKS to verify the signature locally—no network call required.
+3. **Decentralized Survival:** If UID.ONE servers go offline, your logged-in users **will not be affected**. Your application continues to operate autonomously with 100% uptime using the local session until the cryptographic token organically expires.
+
 ## 📦 Installation
 
 ```bash
