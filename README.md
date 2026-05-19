@@ -14,8 +14,9 @@ Designed for maximum flexibility, this SDK provides a headless authentication cl
 - **Passkey (FIDO2) First:** Full support for passwordless authentication via biometric passkeys.
 - **Cross-Device Auth (QR):** Seamlessly authenticate across devices using Zero-Trust QR Challenges.
 - **Zero-Trust Digital Signatures:** Initiate and verify PKCS#7 document signatures without exposing the document payload to the server.
+- **Sovereign Device (HSM) Integration:** Transform mobile apps into Hardware Security Modules (HSM) via on-device RSA keypair generation (`node-forge`).
 - **Pluggable Storage Adapters:** Built-in `LocalStorageAdapter` and `MemoryStorageAdapter`. Easily write your own adapter for `AsyncStorage` (React Native) or Secure Enclaves.
-- **Ecosystem Session Exchange:** Securely exchange UID.ONE tokens for local shadow profile sessions in your applications (e.g., Trip.Express).
+- **Ecosystem Session Exchange:** Securely exchange UID.ONE tokens for local shadow profile sessions in your applications (e.g., Trip.Express) using JWKS local verification.
 
 ## 📦 Installation
 
@@ -139,6 +140,30 @@ const auth = new OneUID({
   clientId: 'your-client-id',
   storage: new ReactNativeStorage()
 });
+```
+
+### 5. Sovereign Device Registration (Phase 3 Zero-Trust)
+
+To elevate your application's security to Zero-Trust, you can register the user's physical device as a Hardware Security Module (HSM). The device generates an RSA key pair locally, protects the private key using the device's Secure Enclave (FaceID/TouchID), and sends the public key to UID.ONE.
+
+```typescript
+import { auth } from './auth';
+import forge from 'node-forge';
+
+// Generate 2048-bit RSA KeyPair (Powered by node-forge)
+const keypair = forge.pki.rsa.generateKeyPair(2048);
+const publicKeyPem = forge.pki.publicKeyToPem(keypair.publicKey);
+const privateKeyPem = forge.pki.privateKeyToPem(keypair.privateKey);
+
+// 1. Save privateKeyPem to your OS Secure Enclave (e.g., expo-secure-store)
+// 2. Register device with UID.ONE CA Server
+await auth.devices.register({
+    deviceId: 'unique-device-uuid',
+    deviceName: 'Johns iPhone 15',
+    publicKey: publicKeyPem
+});
+
+// The device is now a Sovereign Identity Authority!
 ```
 
 ## 🧩 Browser Extension Compatibility
