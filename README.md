@@ -67,7 +67,7 @@ try {
 
 ### 3. Application Integration (Session Exchange Pattern)
 
-For ecosystem applications (like `Trip.Express` or local Agents), you should not rely solely on the UID.ONE token in the browser. Instead, use the SDK to get the UID.ONE Identity Token, and exchange it with your own backend to issue a local HTTP-Only Session Cookie.
+For ecosystem applications (like `Trip.Express` or local clients), you should not rely solely on the UID.ONE token in the browser. Instead, use the SDK to get the UID.ONE Identity Token, and exchange it with your own backend to issue a local HTTP-Only Session Cookie.
 
 **Frontend (Client Component):**
 ```typescript
