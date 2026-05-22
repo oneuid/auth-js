@@ -51,7 +51,11 @@ export class OneUID {
       formData.append('client_secret', this.config.clientSecret);
     }
 
-    const response = await fetch(`${this.config.baseURL}/o/token/`, {
+    const tokenUrl = this.config.baseURL.includes('/realms/')
+      ? `${this.config.baseURL.replace(/\/$/, '')}/openid/token`
+      : `${this.config.baseURL.replace(/\/$/, '')}/o/token/`;
+
+    const response = await fetch(tokenUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: formData.toString()
@@ -269,7 +273,11 @@ export class OneUID {
       formData.append('client_secret', this.config.clientSecret);
     }
 
-    const response = await fetch(`${this.config.baseURL}/o/token/`, {
+    const tokenUrl = this.config.baseURL.includes('/realms/')
+      ? `${this.config.baseURL.replace(/\/$/, '')}/openid/token`
+      : `${this.config.baseURL.replace(/\/$/, '')}/o/token/`;
+
+    const response = await fetch(tokenUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: formData.toString()
@@ -295,7 +303,11 @@ export class OneUID {
         formData.append('client_secret', this.config.clientSecret);
       }
 
-      await fetch(`${this.config.baseURL}/o/revoke_token/`, {
+      const revokeUrl = this.config.baseURL.includes('/realms/')
+        ? `${this.config.baseURL.replace(/\/$/, '')}/openid/revoke`
+        : `${this.config.baseURL.replace(/\/$/, '')}/o/revoke/`;
+
+      await fetch(revokeUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: formData.toString()
@@ -352,7 +364,7 @@ export class OneUID {
    */
   getSocialRedirectUrl(provider: 'google' | 'facebook' | 'apple', redirectUri: string): string {
     const encodedRedirect = encodeURIComponent(redirectUri);
-    return `${this.config.baseURL}/v1/auth/social-redirect/?provider=${provider}&redirect_uri=${encodedRedirect}&client_id=${this.config.clientId}`;
+    return `${this.config.baseURL}/v1/auth/social/?provider=${provider}&redirect_uri=${encodedRedirect}&client_id=${this.config.clientId}`;
   }
 
   /**
