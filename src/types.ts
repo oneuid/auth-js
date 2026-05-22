@@ -15,6 +15,23 @@ export interface UserProfile {
   last_name: string;
 }
 
+export interface IdentifyResponse {
+  flow: 'SSO_REDIRECT' | 'REGISTER' | 'LOGIN_PASSKEY' | 'LOGIN_FALLBACK';
+  next?: 'EMAIL_OTP' | 'MAGIC_LINK' | 'WEBAUTHN_CHALLENGE';
+  redirect_url?: string;
+  org_name?: string;
+  challenge?: any;
+  user_id?: string;
+  fallback?: string;
+  methods?: string[];
+  message?: string;
+}
+
+export interface VerifyResponse extends TokenResponse {
+  user_id: string;
+  suggest_passkey?: boolean;
+}
+
 export interface AuthConfig {
   clientId: string;
   clientSecret?: string; // Optional for public clients

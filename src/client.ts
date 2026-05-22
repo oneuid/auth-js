@@ -1,4 +1,4 @@
-import { AuthConfig, StorageAdapter, TokenResponse, UserProfile } from './types';
+import { AuthConfig, StorageAdapter, TokenResponse, UserProfile, IdentifyResponse, VerifyResponse } from './types';
 import { getDefaultStorage } from './storage';
 import { PasskeyClient } from './passkey';
 import { SessionClient } from './session';
@@ -86,6 +86,96 @@ export class OneUID {
     }
 
     const data: TokenResponse = await response.json();
+    await this.persistTokens(data);
+    return data;
+  }
+
+  /**
+   * Single entry point to identify an email address and determine the authentication flow.
+   */
+  async identify(email: string): Promise<IdentifyResponse> {
+    const response = await fetch(`${this.config.baseURL}/v1/auth/identify/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.error || `Identify failed: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Verifies the 6-digit numeric passcode sent via email.
+   */
+  async verifyPasscode(email: string, code: string, purpose: 'register' | 'login' = 'register'): Promise<VerifyResponse> {
+    const response = await fetch(`${this.config.baseURL}/v1/auth/verify-passcode/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        code,
+        purpose,
+        client_id: this.config.clientId
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.error || `Passcode verification failed: ${response.statusText}`);
+    }
+
+    const data: VerifyResponse = await response.json();
+    await this.persistTokens(data);
+    return data;
+  }
+
+  /**
+   * Verifies the one-time cryptographic nonce token from login link.
+   */
+  async verifyNonce(token: string): Promise<VerifyResponse> {
+    const response = await fetch(`${this.config.baseURL}/v1/auth/verify-nonce/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token,
+        client_id: this.config.clientId
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.error || `Nonce verification failed: ${response.statusText}`);
+    }
+
+    const data: VerifyResponse = await response.json();
+    await this.persistTokens(data);
+    return data;
+  }
+
+  /**
+   * Verifies the WebAuthn assertion for biometric login.
+   */
+  async verifyWebAuthn(userId: string, assertion: any): Promise<VerifyResponse> {
+    const response = await fetch(`${this.config.baseURL}/v1/auth/verify-webauthn/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userId,
+        assertion,
+        client_id: this.config.clientId
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.error || `WebAuthn verification failed: ${response.statusText}`);
+    }
+
+    const data: VerifyResponse = await response.json();
     await this.persistTokens(data);
     return data;
   }
