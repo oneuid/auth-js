@@ -67,6 +67,59 @@ export class OneUID {
   }
 
   /**
+   * Step 1 of Password login with 2FA support.
+   */
+  async verifyPassword(email: string, password: string): Promise<any> {
+    const response = await fetch(`${this.config.baseURL}/v1/auth/verify-password/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        password,
+        client_id: this.config.clientId
+      })
+    });
+
+    if (!response.ok && response.status !== 403) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.error || `Password verification failed: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Step 2 of Password login with 2FA support.
+   */
+  async verify2FA(params: {
+    session_token: string;
+    method: 'totp' | 'passkey' | 'backup_code';
+    code?: string;
+    assertion?: any;
+  }): Promise<any> {
+    const response = await fetch(`${this.config.baseURL}/v1/auth/verify-2fa/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...params,
+        client_id: this.config.clientId
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.error || `2FA verification failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    if (data.token) {
+      await this.persistTokens(data.token);
+    }
+    return data;
+  }
+
+
+  /**
    * Logs in using a third-party provider's token (e.g. Google ID Token)
    */
   async loginWithProvider(provider: string, token: string): Promise<TokenResponse> {
