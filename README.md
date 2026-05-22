@@ -51,6 +51,26 @@ export const auth = new OneUID({
 });
 ```
 
+### 1.1 Embedding Pre-Styled Buttons (Zero-Code Integration)
+
+For developers looking to integrate sign-in controls with minimal footprint, the SDK provides a built-in DOM-rendering engine to embed responsive, brand-consistent buttons (using native elements, preventing external CSS collisions or bundle bloat):
+
+**HTML Container:**
+```html
+<div id="uid-login-container"></div>
+```
+
+**SDK Initialization:**
+```typescript
+// Render standard Passkey / UID.ONE authentication button
+auth.renderButton('uid-login-container', {
+  provider: 'uid', // Options: 'uid' | 'google' | 'facebook' | 'apple'
+  redirectUri: 'https://trip.express/auth/callback',
+  theme: 'dark', // Options: 'light' | 'dark'
+  size: 'medium', // Options: 'small' | 'medium' | 'large'
+});
+```
+
 ### 2. Passwordless Authentication (Passkey)
 
 UID.ONE defaults to Sovereign Identity (Passwordless).
