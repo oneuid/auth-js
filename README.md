@@ -111,6 +111,23 @@ export async function verifyUidSession(token: string) {
 }
 ```
 
+### 3.1 Delegated Social Authentication (Google, Facebook, Apple)
+
+Instead of integrating individual SDKs for Google, Facebook, or Apple on your client application, UID.ONE delegates this complexity. 
+
+Your application only needs to redirect the user to the UID.ONE auth portal. UID.ONE processes the third-party token exchange, verifies the cryptographic signature, and redirects back to your application with the unified UID.ONE session token.
+
+**Redirect Flow:**
+```typescript
+const handleSocialAuth = (provider: 'google' | 'facebook' | 'apple') => {
+  const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
+  window.location.href = `https://auth.uid.one/login?provider=${provider}&redirect_uri=${redirectUri}&client_id=your-client-id`;
+};
+```
+
+**Callback Handling (Next.js/SPA Client):**
+Once the user completes social authentication on the UID.ONE gateway, they are redirected back to your callback page (e.g. `/auth/callback?provider=google&access_token=...`). Your application exchanges the token for a local session using the standard Session Exchange Pattern shown above.
+
 ### 4. Standard Login (Email/Password) - Legacy Fallback
 
 Authenticate users using standard credentials if they haven't migrated to Passkeys yet.
