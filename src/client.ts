@@ -402,6 +402,27 @@ export class OneUID {
   }
 
   /**
+   * Generates the OIDC Authorization redirect URL to the central UID.ONE Login Portal.
+   */
+  getAuthorizeUrl(redirectUri: string): string {
+    const baseURL = this.config.baseURL.replace(/\/$/, '');
+    let authUrl = '';
+    
+    if (baseURL.includes('/realms/')) {
+      authUrl = `${baseURL}/protocol/openid-connect/auth`;
+    } else if (baseURL.includes('api.uid.one')) {
+      authUrl = 'https://auth.uid.one/openid/auth';
+    } else if (baseURL.includes('8001') || baseURL.includes('localhost') || baseURL.includes('127.0.0.1')) {
+      authUrl = 'http://localhost:8080/realms/uid-one/protocol/openid-connect/auth';
+    } else {
+      authUrl = baseURL.replace('/api.', '/auth.') + '/openid/auth';
+    }
+
+    const encodedRedirect = encodeURIComponent(redirectUri);
+    return `${authUrl}?client_id=${this.config.clientId}&redirect_uri=${encodedRedirect}&response_type=code&scope=openid+profile+email`;
+  }
+
+  /**
    * Generates the OAuth redirect URL for a social login provider on the UID.ONE Gateway.
    */
   getSocialRedirectUrl(provider: 'google' | 'facebook' | 'apple', redirectUri: string): string {
