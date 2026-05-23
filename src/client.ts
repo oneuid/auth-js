@@ -37,6 +37,20 @@ export class OneUID {
     }
   }
 
+  private getOidcEndpoint(type: 'token' | 'certs' | 'revoke' | 'userinfo'): string {
+    const baseURL = this.config.baseURL.replace(/\/$/, '');
+    if (baseURL.includes('/realms/')) {
+      return `${baseURL}/protocol/openid-connect/${type}`;
+    }
+    if (baseURL.includes('api.uid.one')) {
+      return `https://auth.uid.one/openid/${type}`;
+    }
+    if (baseURL.includes('8001') || baseURL.includes('localhost') || baseURL.includes('127.0.0.1')) {
+      return `http://localhost:8080/realms/uid-one/protocol/openid-connect/${type}`;
+    }
+    return baseURL.replace('/api.', '/auth.') + `/openid/${type}`;
+  }
+
   /**
    * Logs in using Resource Owner Password Credentials Grant
    */
@@ -46,14 +60,13 @@ export class OneUID {
     formData.append('username', username);
     formData.append('password', password);
     formData.append('client_id', this.config.clientId);
+    formData.append('scope', 'openid profile email');
     
     if (this.config.clientSecret) {
       formData.append('client_secret', this.config.clientSecret);
     }
 
-    const tokenUrl = this.config.baseURL.includes('/realms/')
-      ? `${this.config.baseURL.replace(/\/$/, '')}/openid/token`
-      : `${this.config.baseURL.replace(/\/$/, '')}/o/token/`;
+    const tokenUrl = this.getOidcEndpoint('token');
 
     const response = await fetch(tokenUrl, {
       method: 'POST',
@@ -268,14 +281,13 @@ export class OneUID {
     formData.append('grant_type', 'refresh_token');
     formData.append('refresh_token', refreshToken);
     formData.append('client_id', this.config.clientId);
+    formData.append('scope', 'openid profile email');
     
     if (this.config.clientSecret) {
       formData.append('client_secret', this.config.clientSecret);
     }
 
-    const tokenUrl = this.config.baseURL.includes('/realms/')
-      ? `${this.config.baseURL.replace(/\/$/, '')}/openid/token`
-      : `${this.config.baseURL.replace(/\/$/, '')}/o/token/`;
+    const tokenUrl = this.getOidcEndpoint('token');
 
     const response = await fetch(tokenUrl, {
       method: 'POST',
@@ -303,9 +315,7 @@ export class OneUID {
         formData.append('client_secret', this.config.clientSecret);
       }
 
-      const revokeUrl = this.config.baseURL.includes('/realms/')
-        ? `${this.config.baseURL.replace(/\/$/, '')}/openid/revoke`
-        : `${this.config.baseURL.replace(/\/$/, '')}/o/revoke/`;
+      const revokeUrl = this.getOidcEndpoint('revoke');
 
       await fetch(revokeUrl, {
         method: 'POST',
