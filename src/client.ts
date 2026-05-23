@@ -84,6 +84,38 @@ export class OneUID {
   }
 
   /**
+   * Exchanges an OIDC authorization code for tokens
+   */
+  async loginWithCode(code: string, redirectUri: string): Promise<TokenResponse> {
+    const formData = new URLSearchParams();
+    formData.append('grant_type', 'authorization_code');
+    formData.append('code', code);
+    formData.append('redirect_uri', redirectUri);
+    formData.append('client_id', this.config.clientId);
+    
+    if (this.config.clientSecret) {
+      formData.append('client_secret', this.config.clientSecret);
+    }
+
+    const tokenUrl = this.getOidcEndpoint('token');
+
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString()
+    });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      throw new Error(`Code exchange failed: ${response.statusText}. Details: ${errText}`);
+    }
+
+    const data: TokenResponse = await response.json();
+    await this.persistTokens(data);
+    return data;
+  }
+
+  /**
    * Step 1 of Password login with 2FA support.
    */
   async verifyPassword(email: string, password: string): Promise<any> {
