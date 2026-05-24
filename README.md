@@ -46,7 +46,7 @@ Create a singleton instance of the `OneUID` client. By default, it uses `MemoryS
 import { OneUID } from '@oneuid-auth-js/core';
 
 export const auth = new OneUID({
-  baseURL: 'https://auth.uid.one/realms/uid-one',
+  baseURL: 'https://auth.uid.one',
   clientId: 'your-client-id-here', // Contact UID.ONE to get your client ID
 });
 ```
@@ -109,13 +109,13 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 export async function verifyUidSession(token: string) {
     try {
         // 1. Fetch the JWKS from UID.ONE to verify the token asynchronously
-        // KEYCLOAK_ISSUER_URL should be: https://auth.uid.one/realms/uid-one
-        const jwksUrl = new URL(`${process.env.KEYCLOAK_ISSUER_URL}/protocol/openid-connect/certs`);
+        // UID_ONE_ISSUER_URL should be: https://auth.uid.one
+        const jwksUrl = new URL(`${process.env.UID_ONE_ISSUER_URL}/oauth/certs`);
         const JWKS = createRemoteJWKSet(jwksUrl);
         
         // 2. Verify the Token Signature (Zero-Trust Cryptographic Verification)
         const { payload } = await jwtVerify(token, JWKS, {
-            issuer: process.env.KEYCLOAK_ISSUER_URL,
+            issuer: process.env.UID_ONE_ISSUER_URL,
             audience: process.env.UID_ONE_CLIENT_ID, // e.g., 'trip-express'
         });
         

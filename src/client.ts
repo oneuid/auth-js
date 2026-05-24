@@ -39,16 +39,7 @@ export class OneUID {
 
   private getOidcEndpoint(type: 'token' | 'certs' | 'revoke' | 'userinfo'): string {
     const baseURL = this.config.baseURL.replace(/\/$/, '');
-    if (baseURL.includes('/realms/')) {
-      return `${baseURL}/protocol/openid-connect/${type}`;
-    }
-    if (baseURL.includes('api.uid.one')) {
-      return `https://auth.uid.one/openid/${type}`;
-    }
-    if (baseURL.includes('8001') || baseURL.includes('localhost') || baseURL.includes('127.0.0.1')) {
-      return `http://localhost:8080/realms/uid-one/protocol/openid-connect/${type}`;
-    }
-    return baseURL.replace('/api.', '/auth.') + `/openid/${type}`;
+    return `${baseURL}/oauth/${type === 'certs' ? 'certs' : type}`;
   }
 
   /**
@@ -401,23 +392,9 @@ export class OneUID {
     await this.storage.removeItem(this.REFRESH_KEY);
   }
 
-  /**
-   * Generates the OIDC Authorization redirect URL to the central UID.ONE Login Portal.
-   */
   getAuthorizeUrl(redirectUri: string): string {
     const baseURL = this.config.baseURL.replace(/\/$/, '');
-    let authUrl = '';
-    
-    if (baseURL.includes('/realms/')) {
-      authUrl = `${baseURL}/protocol/openid-connect/auth`;
-    } else if (baseURL.includes('api.uid.one')) {
-      authUrl = 'https://auth.uid.one/openid/auth';
-    } else if (baseURL.includes('8001') || baseURL.includes('localhost') || baseURL.includes('127.0.0.1')) {
-      authUrl = 'http://localhost:8080/realms/uid-one/protocol/openid-connect/auth';
-    } else {
-      authUrl = baseURL.replace('/api.', '/auth.') + '/openid/auth';
-    }
-
+    const authUrl = `${baseURL}/oauth/authorize`;
     const encodedRedirect = encodeURIComponent(redirectUri);
     return `${authUrl}?client_id=${this.config.clientId}&redirect_uri=${encodedRedirect}&response_type=code&scope=openid+profile+email`;
   }
