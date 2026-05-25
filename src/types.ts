@@ -52,6 +52,8 @@ export interface VaultRecord {
   payload: string;
   session_key?: string | null;
   sync_status: 'PENDING' | 'COMPLETED';
+  issuer?: string | null;
+  signature?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

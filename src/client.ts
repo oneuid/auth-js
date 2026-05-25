@@ -527,7 +527,9 @@ export class OneUID {
     payload: string,
     type: string = 'note',
     sessionKey: string | null = null,
-    syncStatus: 'PENDING' | 'COMPLETED' = 'COMPLETED'
+    syncStatus: 'PENDING' | 'COMPLETED' = 'COMPLETED',
+    issuer: string | null = null,
+    signature: string | null = null
   ): Promise<VaultRecord> {
     const token = await this.getAccessToken();
     if (!token) {
@@ -545,7 +547,9 @@ export class OneUID {
         payload,
         type,
         session_key: sessionKey,
-        sync_status: syncStatus
+        sync_status: syncStatus,
+        issuer,
+        signature
       })
     });
 
