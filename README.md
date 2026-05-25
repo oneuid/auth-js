@@ -229,9 +229,23 @@ console.log('Public Key:', recipientPubKeyInfo.public_key);
 const record = await auth.addVaultRecord(
   'My Secure Ticket',
   'ENCRYPTED_PAYLOAD_HERE',
-  'TICKET'
+  'TICKET' // See supported types below
 );
 ```
+
+##### Supported Record Types (`type` parameter):
+| Value | Description |
+|---|---|
+| `'NOTE'` | Secure notes or generic text (Default) |
+| `'TICKET'` | Travel tickets, bookings, or vouchers |
+| `'CARD'` | Payment card details |
+| `'WALLET'` | Cryptographic wallet credentials / keys |
+| `'PASSKEY'` | Backup passkey credentials |
+| `'PASSWORD'` | Legacy credentials |
+| `'API_KEY'` | Access tokens / API keys |
+| `'SIGNATURE'`| Document signature verifications |
+| `'DOCUMENT'` | Document metadata / encrypted PDFs |
+| `'OTHER'` | Generic encrypted data fallback |
 
 #### Transfer ownership of a Vault Record (Hybrid asymmetric wrapping)
 ```typescript
