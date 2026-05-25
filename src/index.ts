@@ -4,3 +4,4 @@ export * from './storage';
 export * from './passkey';
 export * from './session';
 export * from './recovery';
+export * from './web3';
