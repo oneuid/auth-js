@@ -225,11 +225,15 @@ console.log('Public Key:', recipientPubKeyInfo.public_key);
 
 #### Save a Record to the User's Vault (AES-GCM encrypted local payload)
 ```typescript
-// Add a new encrypted record with default or pending synchronization status
+// Add a new encrypted record with optional Signed Provenance
 const record = await auth.addVaultRecord(
   'My Secure Ticket',
   'ENCRYPTED_PAYLOAD_HERE',
-  'TICKET' // See supported types below
+  'TICKET',              // See supported types below
+  null,                  // sessionKey (optional)
+  'COMPLETED',           // syncStatus (optional)
+  'trip_express_core',   // issuer (optional, OIDC client ID or domain)
+  'SIGNATURE_PROOF_PEM'  // signature (optional, cryptographic signature)
 );
 ```
 
