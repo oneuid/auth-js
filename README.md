@@ -212,6 +212,51 @@ await auth.devices.register({
 // The device is now a Sovereign Identity Authority!
 ```
 
+### 6. Vault & Sovereign Encryption (Zero-Knowledge & Hybrid Transfer)
+
+The SDK provides direct APIs for Zero-Knowledge Vault storage and secure asymmetric record transfer using Sovereign Device keys.
+
+#### Retrieve Recipient's Active Device Public Key
+```typescript
+// Query the active device public key of the recipient by their email, username, or UID
+const recipientPubKeyInfo = await auth.getUserPublicKey('recipient@trip.express');
+console.log('Public Key:', recipientPubKeyInfo.public_key);
+```
+
+#### Save a Record to the User's Vault (AES-GCM encrypted local payload)
+```typescript
+// Add a new encrypted record with default or pending synchronization status
+const record = await auth.addVaultRecord(
+  'My Secure Ticket',
+  'ENCRYPTED_PAYLOAD_HERE',
+  'TICKET'
+);
+```
+
+#### Transfer ownership of a Vault Record (Hybrid asymmetric wrapping)
+```typescript
+// 1. Decrypt locally with your Master Vault Key (MVK)
+// 2. Encrypt the record session key using the recipient's public key (Key Wrapping)
+// 3. Encrypt the record payload using the session key
+// 4. Send the payload and wrapped session key to the server to initiate transfer
+await auth.transferVaultRecord(
+  'record-id-uuid',
+  'recipient@trip.express',           // Recipient identifier
+  'NEW_ENCRYPTED_PAYLOAD',            // Encrypted with session key
+  'WRAPPED_SESSION_KEY_FOR_RECIPIENT' // Session key encrypted using recipient's public key
+);
+```
+
+#### Manage Device-bound Master Vault Keys (MVK)
+To support multi-device access without storing raw vault keys on the server, you encrypt the Master Vault Key (MVK) with each device's public key (Key Wrapping) and register it:
+```typescript
+// Register a wrapped MVK for a new device
+await auth.registerDeviceVaultKey('unique-device-id', 'WRAPPED_MVK_PEM');
+
+// Retrieve all wrapped MVKs for the current user
+const keys = await auth.getDeviceVaultKeys();
+```
+
 ## 🧩 Browser Extension Compatibility
 
 The UID.ONE Browser Extension is designed to upgrade legacy applications that do not natively support Passkeys. If you are integrating this SDK into your application, your app is considered "Native".
