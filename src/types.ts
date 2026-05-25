@@ -44,3 +44,30 @@ export interface StorageAdapter {
   setItem(key: string, value: string): Promise<void> | void;
   removeItem(key: string): Promise<void> | void;
 }
+
+export interface VaultRecord {
+  id: string;
+  title: string;
+  type: string;
+  payload: string;
+  session_key?: string | null;
+  sync_status: 'PENDING' | 'COMPLETED';
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeviceVaultKey {
+  id: string;
+  device: string;
+  wrapped_mvk: string;
+  created_at: string;
+}
+
+export interface UserPublicKey {
+  status: 'success' | 'error';
+  user_id: string;
+  device_id: string;
+  device_name: string;
+  public_key: string;
+}

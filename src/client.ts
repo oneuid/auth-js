@@ -1,4 +1,4 @@
-import { AuthConfig, StorageAdapter, TokenResponse, UserProfile, IdentifyResponse, VerifyResponse } from './types';
+import { AuthConfig, StorageAdapter, TokenResponse, UserProfile, IdentifyResponse, VerifyResponse, VaultRecord, UserPublicKey, DeviceVaultKey } from './types';
 import { getDefaultStorage } from './storage';
 import { PasskeyClient } from './passkey';
 import { SessionClient } from './session';
@@ -496,5 +496,157 @@ export class OneUID {
 
     container.innerHTML = '';
     container.appendChild(btn);
+  }
+
+  /**
+   * Retrieves the active sovereign device public key of a recipient user.
+   * Can be queried by User ID (OIDC sub), email, or username.
+   */
+  async getUserPublicKey(identifier: string): Promise<UserPublicKey> {
+    const response = await fetch(`${this.config.baseURL}/v1/auth/users/${encodeURIComponent(identifier)}/pubkey/`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Failed to fetch public key: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Adds an encrypted record to the current user's Vault.
+   * Requires an authenticated session.
+   */
+  async addVaultRecord(
+    title: string,
+    payload: string,
+    type: string = 'note',
+    sessionKey: string | null = null,
+    syncStatus: 'PENDING' | 'COMPLETED' = 'COMPLETED'
+  ): Promise<VaultRecord> {
+    const token = await this.getAccessToken();
+    if (!token) {
+      throw new Error("Authentication required to save vault records.");
+    }
+
+    const response = await fetch(`${this.config.baseURL}/v1/vault/records/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        title,
+        payload,
+        type,
+        session_key: sessionKey,
+        sync_status: syncStatus
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.error || `Failed to create vault record: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Transfers ownership of a vault record to another user.
+   * The payload must be re-encrypted using the recipient's public key beforehand.
+   * Requires an authenticated session.
+   */
+  async transferVaultRecord(
+    recordId: string,
+    recipient: string,
+    payload: string,
+    sessionKey: string,
+    title?: string
+  ): Promise<{ status: string; message: string }> {
+    const token = await this.getAccessToken();
+    if (!token) {
+      throw new Error("Authentication required to transfer vault records.");
+    }
+
+    const response = await fetch(`${this.config.baseURL}/v1/vault/records/${recordId}/transfer/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        recipient,
+        payload,
+        session_key: sessionKey,
+        title
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.error || `Failed to transfer vault record: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Retrieves all wrapped Master Vault Keys (MVK) registered for the user's devices.
+   */
+  async getDeviceVaultKeys(): Promise<DeviceVaultKey[]> {
+    const token = await this.getAccessToken();
+    if (!token) {
+      throw new Error("Authentication required to get device vault keys.");
+    }
+
+    const response = await fetch(`${this.config.baseURL}/v1/vault/keys/`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.error || `Failed to fetch device vault keys: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Registers a new wrapped Master Vault Key (MVK) for a device.
+   */
+  async registerDeviceVaultKey(deviceId: string, wrappedMVK: string): Promise<DeviceVaultKey> {
+    const token = await this.getAccessToken();
+    if (!token) {
+      throw new Error("Authentication required to register a device vault key.");
+    }
+
+    const response = await fetch(`${this.config.baseURL}/v1/vault/keys/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        device: deviceId,
+        wrapped_mvk: wrappedMVK
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.error || `Failed to register device vault key: ${response.statusText}`);
+    }
+
+    return response.json();
   }
 }
