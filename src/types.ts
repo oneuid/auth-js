@@ -10,6 +10,7 @@ export interface TokenResponse {
 export interface UserProfile {
   id: string;
   uid: string;
+  sovereign_id: string;
   email: string;
   username: string;
   first_name: string;
