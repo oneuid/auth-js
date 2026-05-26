@@ -275,6 +275,42 @@ await auth.registerDeviceVaultKey('unique-device-id', 'WRAPPED_MVK_PEM');
 const keys = await auth.getDeviceVaultKeys();
 ```
 
+## ⚙️ Production Web Server Tuning (Nginx / Apache)
+
+When using the **Session Exchange Pattern**, your application's backend will issue a local session cookie that stores cryptographic tokens (JWTs) and user profile information. This often results in a relatively large `Set-Cookie` header size (exceeding 4KB or 8KB).
+
+By default, web proxies like **Nginx** or **Apache** have small header buffer limits. If a response header exceeds these limits, the proxy will terminate the connection and return a **502 Bad Gateway** or **500 Internal Server Error** (with Nginx reporting `upstream sent too big header while reading response header from upstream` in its logs).
+
+To prevent this in production, you must increase the proxy buffer sizes:
+
+### Nginx Configuration
+Add the following directives inside your Next.js/application `location /` proxy block:
+
+```nginx
+location / {
+    proxy_pass http://localhost:3000;
+    
+    # Increase proxy buffers to handle large session cookies/headers
+    proxy_buffer_size   128k;
+    proxy_buffers       4 256k;
+    proxy_busy_buffers_size 256k;
+    
+    # Other proxy settings...
+}
+```
+
+### Apache Configuration (mod_proxy)
+Add the following directive inside your virtual host configuration:
+
+```apache
+<VirtualHost *:443>
+    # Increase I/O buffer size (default is 8192 bytes)
+    ProxyIOBufferSize 65536
+    
+    # Other settings...
+</VirtualHost>
+```
+
 ## 🧩 Browser Extension Compatibility
 
 The UID.ONE Browser Extension is designed to upgrade legacy applications that do not natively support Passkeys. If you are integrating this SDK into your application, your app is considered "Native".
