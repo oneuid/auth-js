@@ -275,6 +275,22 @@ await auth.registerDeviceVaultKey('unique-device-id', 'WRAPPED_MVK_PEM');
 const keys = await auth.getDeviceVaultKeys();
 ```
 
+## 🔑 Bring Your Own Key (BYOK) & KMS Integration
+
+For enterprise applications requiring strict data sovereignty, UID.ONE supports **Bring Your Own Key (BYOK)**. You can configure your application to use your own cloud-hosted Key Management Service (KMS) or Secrets Manager to generate and manage the encryption keys used for your application tokens.
+
+### Configuration
+In the UID.ONE Developer Portal, configure your application with two provider-agnostic parameters:
+1. **`secret_uri`**: The URI of your key in AWS Secrets Manager or AWS KMS (e.g., `arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:prod/my-key`).
+2. **`delegate_uri`**: An IAM Role ARN that UID.ONE will assume via AWS Security Token Service (STS) `AssumeRole` to access your key.
+
+### Key Lifecycle & Resilience (4-Tier Circuit Breaker)
+UID.ONE utilizes a state-of-the-art caching and fallback architecture to ensure maximum availability:
+- **Active Cache (Tier 1)**: Credentials and decrypted master keys are securely cached for up to 1 hour. STS credentials are automatically refreshed **5 minutes** before expiration.
+- **Read-Only Fallback (Tier 2)**: If your KMS goes offline, UID.ONE falls back to expired cached keys (up to 24 hours old) for read-only detokenization, allowing existing sessions and read flows to continue.
+- **Cold Cache Blockage (Tier 3)**: If KMS is offline and no cache is available, any operation raises `KMSUnavailableError` (HTTP 503).
+- **Write Degradation (Tier 4)**: Write operations are blocked (`KMSDegradedWriteError`) during KMS downtime to prevent orphaned data.
+
 ## ⚙️ Production Web Server Tuning (Nginx / Apache)
 
 When using the **Session Exchange Pattern**, your application's backend will issue a local session cookie that stores cryptographic tokens (JWTs) and user profile information. This often results in a relatively large `Set-Cookie` header size (exceeding 4KB or 8KB).
