@@ -131,22 +131,54 @@ export async function verifyUidSession(token: string) {
 }
 ```
 
-### 3.1 Delegated Social Authentication (Google, Facebook, Apple)
+### 3.1 Native Social Authentication (Google, Facebook, Apple)
 
-Instead of integrating individual SDKs for Google, Facebook, or Apple on your client application, UID.ONE delegates this complexity. 
+Instead of routing through a middleman redirect on the UID.ONE gateway (which has been decommissioned), social login is performed via a **Native Client Flow**. 
 
-Your application only needs to redirect the user to the UID.ONE auth portal. UID.ONE processes the third-party token exchange, verifies the cryptographic signature, and redirects back to your application with the unified UID.ONE session token.
+Your application redirects the user directly to the social provider's authorization page (Google, Facebook, Apple). Once the provider redirects back with a token, your application exchanges it for a secure UID.ONE session using `auth.loginWithProvider()`.
 
-**Redirect Flow:**
+#### 1. Redirect to Provider (Client-side)
 ```typescript
 const handleSocialAuth = (provider: 'google' | 'facebook' | 'apple') => {
   const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
-  window.location.href = `https://auth.uid.one/login?provider=${provider}&redirect_uri=${redirectUri}&client_id=your-client-id`;
+  
+  let authUrl = '';
+  if (provider === 'google') {
+    const clientId = 'YOUR_GOOGLE_CLIENT_ID';
+    authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${clientId}&redirect_uri=${redirectUri}&scope=openid%20email%20profile&state=${provider}`;
+  } else if (provider === 'facebook') {
+    const clientId = 'YOUR_FACEBOOK_CLIENT_ID';
+    authUrl = `https://www.facebook.com/v12.0/dialog/oauth?response_type=token&client_id=${clientId}&redirect_uri=${redirectUri}&scope=email,public_profile&state=${provider}`;
+  } else if (provider === 'apple') {
+    const clientId = 'YOUR_APPLE_CLIENT_ID';
+    authUrl = `https://appleid.apple.com/auth/authorize?response_type=code%20id_token&client_id=${clientId}&redirect_uri=${redirectUri}&scope=name%20email&response_mode=fragment&state=${provider}`;
+  }
+
+  window.location.href = authUrl;
 };
 ```
 
-**Callback Handling (Next.js/SPA Client):**
-Once the user completes social authentication on the UID.ONE gateway, they are redirected back to your callback page (e.g. `/auth/callback?provider=google&access_token=...`). Your application exchanges the token for a local session using the standard Session Exchange Pattern shown above.
+#### 2. Exchange Provider Token on Callback Page
+Once the user authorizes, they return to your callback route. Extract the provider's token (`access_token`, `id_token` or `code`) and call the SDK:
+
+```typescript
+// Example inside /auth/callback component
+const hashParams = new URLSearchParams(window.location.hash.substring(1));
+const provider = hashParams.get("state") as 'google' | 'facebook' | 'apple';
+const providerToken = hashParams.get("access_token") || hashParams.get("id_token") || hashParams.get("code");
+
+if (provider && providerToken) {
+  try {
+    // Exchange third-party token for UID.ONE session credentials
+    const session = await auth.loginWithProvider(provider, providerToken);
+    console.log('Login successful!', session.access_token);
+    
+    // Proceed to exchange session with your App backend (Section 3 above)
+  } catch (error) {
+    console.error('Social token exchange failed:', error);
+  }
+}
+```
 
 ### 4. Standard Login (Email/Password) - Legacy Fallback
 

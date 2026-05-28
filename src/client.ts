@@ -401,8 +401,10 @@ export class OneUID {
 
   /**
    * Generates the OAuth redirect URL for a social login provider on the UID.ONE Gateway.
+   * @deprecated Social redirect views have been decommissioned. Use native client flows instead.
    */
   getSocialRedirectUrl(provider: 'google' | 'facebook' | 'apple', redirectUri: string): string {
+    console.warn("getSocialRedirectUrl is deprecated. Please perform native OAuth redirects directly from your client application.");
     const encodedRedirect = encodeURIComponent(redirectUri);
     return `${this.config.baseURL}/v1/auth/social/?provider=${provider}&redirect_uri=${encodedRedirect}&client_id=${this.config.clientId}`;
   }
@@ -490,7 +492,8 @@ export class OneUID {
       if (provider === 'uid') {
         window.location.href = `${this.config.baseURL}/login/?client_id=${this.config.clientId}&redirect_uri=${encodeURIComponent(redirectUri)}`;
       } else {
-        window.location.href = this.getSocialRedirectUrl(provider, redirectUri);
+        console.error(`Social login rendering via renderButton is decommissioned. Please perform native OAuth redirects directly from your client application for provider: ${provider}`);
+        alert(`Social login for ${provider} must be initiated directly from your application using the Native Client Flow.`);
       }
     };
 
