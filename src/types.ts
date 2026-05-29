@@ -24,6 +24,7 @@ export interface IdentifyResponse {
   org_name?: string;
   challenge?: any;
   user_id?: string;
+  token?: string;
   fallback?: string;
   methods?: string[];
   message?: string;
