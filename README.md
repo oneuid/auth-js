@@ -151,7 +151,7 @@ const handleSocialAuth = (provider: 'google' | 'facebook' | 'apple') => {
     authUrl = `https://www.facebook.com/v12.0/dialog/oauth?response_type=token&client_id=${clientId}&redirect_uri=${redirectUri}&scope=email,public_profile&state=${provider}`;
   } else if (provider === 'apple') {
     const clientId = 'YOUR_APPLE_CLIENT_ID';
-    authUrl = `https://appleid.apple.com/auth/authorize?response_type=code%20id_token&client_id=${clientId}&redirect_uri=${redirectUri}&scope=name%20email&response_mode=fragment&state=${provider}`;
+    authUrl = `https://appleid.apple.com/auth/authorize?response_type=code%20id_token&client_id=${clientId}&redirect_uri=${redirectUri}&scope=name%20email&response_mode=form_post&state=${provider}`;
   }
 
   window.location.href = authUrl;
