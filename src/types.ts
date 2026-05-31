@@ -11,10 +11,11 @@ export interface UserProfile {
   id: string;
   uid: string;
   sovereign_id: string;
-  email: string;
+  email?: string;
   username: string;
   first_name: string;
   last_name: string;
+  zk_mode?: boolean;
 }
 
 export interface IdentifyResponse {
