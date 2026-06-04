@@ -326,6 +326,49 @@ In the UID.ONE Developer Portal, configure your application with two provider-ag
 1. **`secret_uri`**: The URI of your key in AWS Secrets Manager or AWS KMS (e.g., `arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:prod/my-key`).
 2. **`delegate_uri`**: An IAM Role ARN that UID.ONE will assume via AWS Security Token Service (STS) `AssumeRole` to access your key.
 
+### SDK KMS Integration (Offline-Resilient Cryptography)
+
+The SDK provides a high-performance, cross-platform `KMSClient` powered by the Web Crypto API to perform local envelope encryption and decryption with local keyring cache database fallback.
+
+```typescript
+import { OneUID } from '@oneuid-auth-js/core';
+
+const auth = new OneUID({
+    baseURL: 'https://api.uid.one',
+    clientId: 'trip_express_core',
+    clientSecret: 'my-client-secret'
+});
+
+// Initialize KMS with your Master Key (KEK) and optional database keyring storage
+const kms = auth.initKMS({
+    kekB64: process.env.VAULT_MASTER_KEY, // Base64 encoded 256-bit key
+    keyringStorage: {
+        async getItem(key) {
+            // Retrieve from your local persistent database (e.g. Prisma / Postgres)
+            const record = await db.cipher.findUnique({ where: { versionKey: key } });
+            return record?.keyMaterial || null;
+        },
+        async setItem(key, wrappedDek) {
+            // Persist to your local database for offline fallback
+            const version = parseInt(key.replace('cipher_version_', ''));
+            await db.cipher.upsert({
+                where: { version },
+                update: { keyMaterial: wrappedDek },
+                create: { version, keyMaterial: wrappedDek }
+            });
+        }
+    }
+});
+
+// 1. Encrypt PII data (uses the active DEK)
+const { ciphertext, version } = await kms.encrypt('John Doe');
+// Stored format in DB: `${version}:${ciphertext}`
+
+// 2. Decrypt PII data (automatically unwrap DEK locally)
+const plaintext = await kms.decrypt(ciphertext, version);
+console.log('Plaintext:', plaintext); // 'John Doe'
+```
+
 ### Key Lifecycle & Resilience (4-Tier Circuit Breaker)
 UID.ONE utilizes a state-of-the-art caching and fallback architecture to ensure maximum availability:
 - **Active Cache (Tier 1)**: Credentials and decrypted master keys are securely cached for up to 1 hour. STS credentials are automatically refreshed **5 minutes** before expiration.

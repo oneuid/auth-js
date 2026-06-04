@@ -4,6 +4,7 @@ import { PasskeyClient } from './passkey';
 import { SessionClient } from './session';
 import { RecoveryClient } from './recovery';
 import { DevicesClient } from './devices';
+import { KMSClient, KeyringStorageAdapter } from './kms';
 
 export class OneUID {
   private config: AuthConfig;
@@ -15,6 +16,7 @@ export class OneUID {
   public session: SessionClient;
   public recovery: RecoveryClient;
   public devices: DevicesClient;
+  public kms?: KMSClient;
 
   constructor(config: AuthConfig, storage?: StorageAdapter) {
     this.config = config;
@@ -25,7 +27,22 @@ export class OneUID {
     this.recovery = new RecoveryClient(this.config, this);
     this.devices = new DevicesClient(this.config, this);
 
+    // Auto-initialize KMS if KEK exists in env
+    const globalProcess = typeof globalThis !== 'undefined' ? (globalThis as any).process : undefined;
+    if (globalProcess && globalProcess.env && globalProcess.env.VAULT_MASTER_KEY) {
+      try {
+        this.initKMS();
+      } catch (e) {
+        // Silent catch during initialization
+      }
+    }
+
     this.injectNativeMetaTag();
+  }
+
+  public initKMS(options: { kekB64?: string; keyringStorage?: KeyringStorageAdapter } = {}): KMSClient {
+    this.kms = new KMSClient(this.config, this, options);
+    return this.kms;
   }
 
   private injectNativeMetaTag() {
