@@ -3,6 +3,7 @@ import { getDefaultStorage } from './storage';
 import { PasskeyClient } from './passkey';
 import { SessionClient } from './session';
 import { RecoveryClient } from './recovery';
+import { DevicesClient } from './devices';
 
 export class OneUID {
   private config: AuthConfig;
@@ -13,6 +14,7 @@ export class OneUID {
   public passkey: PasskeyClient;
   public session: SessionClient;
   public recovery: RecoveryClient;
+  public devices: DevicesClient;
 
   constructor(config: AuthConfig, storage?: StorageAdapter) {
     this.config = config;
@@ -21,6 +23,7 @@ export class OneUID {
     this.passkey = new PasskeyClient(this.config, this);
     this.session = new SessionClient(this.config, this);
     this.recovery = new RecoveryClient(this.config, this);
+    this.devices = new DevicesClient(this.config, this);
 
     this.injectNativeMetaTag();
   }

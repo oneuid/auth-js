@@ -244,6 +244,16 @@ await auth.devices.register({
 // The device is now a Sovereign Identity Authority!
 ```
 
+#### 2.1 Cryptographic Device Verification (Circle of Trust)
+Verify a new device using an already verified device's private key signature:
+```typescript
+await auth.devices.verify({
+    targetDeviceId: 'target-device-uuid',
+    verifyingDeviceId: 'trusted-device-uuid',
+    signature: 'BASE64_CRYPTOGRAPHIC_SIGNATURE'
+});
+```
+
 ### 6. Vault & Sovereign Encryption (Zero-Knowledge & Hybrid Transfer)
 
 The SDK provides direct APIs for Zero-Knowledge Vault storage and secure asymmetric record transfer using Sovereign Device keys.

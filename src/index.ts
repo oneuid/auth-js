@@ -5,3 +5,4 @@ export * from './passkey';
 export * from './session';
 export * from './recovery';
 export * from './web3';
+export * from './devices';
