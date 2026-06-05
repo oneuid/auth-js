@@ -317,18 +317,11 @@ await auth.registerDeviceVaultKey('unique-device-id', 'WRAPPED_MVK_PEM');
 const keys = await auth.getDeviceVaultKeys();
 ```
 
-## 🔑 Bring Your Own Key (BYOK) & KMS Integration
+## 🔑 KMS & Envelope Encryption
 
-For enterprise applications requiring strict data sovereignty, UID.ONE supports **Bring Your Own Key (BYOK)**. You can configure your application to use your own cloud-hosted Key Management Service (KMS) or Secrets Manager to generate and manage the encryption keys used for your application tokens.
-
-### Configuration
-In the UID.ONE Developer Portal, configure your application with two provider-agnostic parameters:
-1. **`secret_uri`**: The URI of your key in AWS Secrets Manager or AWS KMS (e.g., `arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:prod/my-key`).
-2. **`delegate_uri`**: An IAM Role ARN that UID.ONE will assume via AWS Security Token Service (STS) `AssumeRole` to access your key.
+For applications requiring client-side database encryption or strict data sovereignty, the SDK provides a high-performance, cross-platform `KMSClient` powered by the Web Crypto API to perform local envelope encryption and decryption with local keyring cache database fallback.
 
 ### SDK KMS Integration (Offline-Resilient Cryptography)
-
-The SDK provides a high-performance, cross-platform `KMSClient` powered by the Web Crypto API to perform local envelope encryption and decryption with local keyring cache database fallback.
 
 ```typescript
 import { OneUID } from '@oneuid-auth-js/core';
