@@ -19,7 +19,7 @@ export interface UserProfile {
 }
 
 export interface IdentifyResponse {
-  flow: 'SSO_REDIRECT' | 'REGISTER' | 'LOGIN_PASSKEY' | 'LOGIN_FALLBACK';
+  flow: 'SSO_REDIRECT' | 'REGISTER' | 'LOGIN_PASSKEY' | 'LOGIN_FALLBACK' | 'LOGIN_TOTP';
   next?: 'EMAIL_OTP' | 'MAGIC_LINK' | 'WEBAUTHN_CHALLENGE';
   redirect_url?: string;
   org_name?: string;
@@ -29,6 +29,7 @@ export interface IdentifyResponse {
   fallback?: string;
   methods?: string[];
   message?: string;
+  session_token?: string;
 }
 
 export interface VerifyResponse extends TokenResponse {
