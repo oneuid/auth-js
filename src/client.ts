@@ -142,7 +142,7 @@ export class OneUID {
 
     if (!response.ok && response.status !== 403) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.error || `Password verification failed: ${response.statusText}`);
+      throw new Error(parseError(errorData, `Password verification failed: ${response.statusText}`));
     }
 
     return response.json();
@@ -168,7 +168,7 @@ export class OneUID {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.error || `2FA verification failed: ${response.statusText}`);
+      throw new Error(parseError(errorData, `2FA verification failed: ${response.statusText}`));
     }
 
     const data = await response.json();
@@ -215,7 +215,7 @@ export class OneUID {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.error || `Identify failed: ${response.statusText}`);
+      throw new Error(parseError(errorData, `Identify failed: ${response.statusText}`));
     }
 
     return response.json();
@@ -238,7 +238,7 @@ export class OneUID {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.error || `Passcode verification failed: ${response.statusText}`);
+      throw new Error(parseError(errorData, `Passcode verification failed: ${response.statusText}`));
     }
 
     const data: VerifyResponse = await response.json();
@@ -261,7 +261,7 @@ export class OneUID {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.error || `Nonce verification failed: ${response.statusText}`);
+      throw new Error(parseError(errorData, `Nonce verification failed: ${response.statusText}`));
     }
 
     const data: VerifyResponse = await response.json();
@@ -285,7 +285,7 @@ export class OneUID {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.error || `WebAuthn verification failed: ${response.statusText}`);
+      throw new Error(parseError(errorData, `WebAuthn verification failed: ${response.statusText}`));
     }
 
     const data: VerifyResponse = await response.json();
@@ -310,7 +310,7 @@ export class OneUID {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.error || `Registration failed: ${response.statusText}`);
+      throw new Error(parseError(errorData, `Registration failed: ${response.statusText}`));
     }
 
     return response.json();
@@ -578,7 +578,7 @@ export class OneUID {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.error || `Failed to create vault record: ${response.statusText}`);
+      throw new Error(parseError(errorData, `Failed to create vault record: ${response.statusText}`));
     }
 
     return response.json();
@@ -617,7 +617,7 @@ export class OneUID {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.error || `Failed to transfer vault record: ${response.statusText}`);
+      throw new Error(parseError(errorData, `Failed to transfer vault record: ${response.statusText}`));
     }
 
     return response.json();
@@ -642,7 +642,7 @@ export class OneUID {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.error || `Failed to fetch device vault keys: ${response.statusText}`);
+      throw new Error(parseError(errorData, `Failed to fetch device vault keys: ${response.statusText}`));
     }
 
     return response.json();
@@ -671,9 +671,30 @@ export class OneUID {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.error || `Failed to register device vault key: ${response.statusText}`);
+      throw new Error(parseError(errorData, `Failed to register device vault key: ${response.statusText}`));
     }
 
     return response.json();
   }
+}
+
+export function parseError(errorData: any, fallback: string): string {
+  if (!errorData) return fallback;
+  if (typeof errorData === 'string') return errorData;
+  if (errorData.detail && typeof errorData.detail === 'string') return errorData.detail;
+  if (errorData.error && typeof errorData.error === 'string') return errorData.error;
+  if (errorData.message && typeof errorData.message === 'string') return errorData.message;
+  
+  if (typeof errorData === 'object') {
+    for (const key of Object.keys(errorData)) {
+      const val = errorData[key];
+      if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'string') {
+        return val[0];
+      }
+      if (typeof val === 'string') {
+        return val;
+      }
+    }
+  }
+  return fallback;
 }
