@@ -16,6 +16,8 @@ export interface UserProfile {
   first_name: string;
   last_name: string;
   zk_mode?: boolean;
+  is_accredited_investor?: boolean;
+  accreditation_level?: string;
 }
 
 export interface IdentifyResponse {
