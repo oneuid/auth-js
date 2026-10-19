@@ -394,6 +394,13 @@ export class OneUID {
     await this.logout();
   }
 
+  /**
+   * Revokes active sessions across Relying Parties via POST /v1/auth/revoke/.
+   */
+  async revoke(options: { applicationId?: string; reason?: string; includeCurrent?: boolean } = {}) {
+    return this.session.revoke(options);
+  }
+
   async getAccessToken(): Promise<string | null> {
     // In a production scenario, we should decode the JWT to check expiry 
     // and automatically use the refresh token if expired.

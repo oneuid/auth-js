@@ -103,4 +103,65 @@ export class SessionClient {
       }, intervalMs);
     });
   }
+
+  /**
+   * Revokes all active sessions across all Relying Parties (or a specific application)
+   * and triggers OIDC Back-Channel Logout fan-out via POST /v1/auth/revoke/.
+   */
+  async revoke(options: { applicationId?: string; reason?: string; includeCurrent?: boolean } = {}): Promise<{
+    status: string;
+    subject: string;
+    revoked_access: number;
+    revoked_refresh: number;
+    notified_apps: number;
+  }> {
+    const token = await this.root.getAccessToken();
+    if (!token) throw new Error("Must be authenticated to revoke sessions");
+
+    const baseURL = this.config.baseURL.replace(/\/$/, '');
+    const res = await fetch(`${baseURL}/v1/auth/revoke/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        application_id: options.applicationId,
+        reason: options.reason || 'user_revoke',
+        include_current: Boolean(options.includeCurrent)
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Failed to revoke sessions");
+    }
+
+    if (options.includeCurrent) {
+      await this.root.clearTokens();
+    }
+
+    return res.json();
+  }
+
+  /**
+   * Revokes a single session by ID (or 'all') via DELETE /v1/auth/sessions/<id>/.
+   */
+  async revokeSession(sessionId: string): Promise<void> {
+    const token = await this.root.getAccessToken();
+    if (!token) throw new Error("Must be authenticated to revoke a session");
+
+    const baseURL = this.config.baseURL.replace(/\/$/, '');
+    const res = await fetch(`${baseURL}/v1/auth/sessions/${encodeURIComponent(sessionId)}/`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!res.ok && res.status !== 204) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Failed to revoke session");
+    }
+  }
 }
