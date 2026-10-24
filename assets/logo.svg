@@ -1,28 +1,13 @@
-<svg viewBox="0 0 850 250" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <!-- UID Tech Gradient -->
-    <linearGradient id="uidGradient" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#2563FF"/>
-      <stop offset="100%" stop-color="#7C3AED"/>
-    </linearGradient>
-  </defs>
-
-  <!-- "UID" Bold -->
-  <text x="20" y="190"
-        font-family="system-ui, -apple-system, sans-serif"
-        font-size="220"
-        font-weight="800"
-        letter-spacing="-4"
-        fill="#0F172A">UID</text>
-
-  <!-- The Gradient Dot (Giảm bán kính xuống 24, căn giữa hoàn hảo) -->
-  <circle cx="415" cy="166" r="24" fill="url(#uidGradient)"/>
-
-  <!-- "one" Light (Kéo x dịch vào 450 để ôm sát dấu chấm) -->
-  <text x="450" y="190"
-        font-family="system-ui, -apple-system, sans-serif"
-        font-size="190"
-        font-weight="300"
-        letter-spacing="-2"
-        fill="#0F172A">one</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 56" width="210" height="56" fill="none">
+  <g fill="#0F172A">
+    <path d="M6 10H13.5V29.5C13.5 34.8 16.6 37.8 21.5 37.8C26.4 37.8 29.5 34.8 29.5 29.5V10H37V29.8C37 39.2 30.8 44.5 21.5 44.5C12.2 44.5 6 39.2 6 29.8V10Z"/>
+    <rect x="44" y="10" width="7.5" height="34" rx="1.5"/>
+    <path fill-rule="evenodd" d="M59 10H72.5C83.2 10 90 16.6 90 27C90 37.4 83.2 44 72.5 44H59V10ZM66.5 16.5V37.5H72.2C78.8 37.5 82.4 33.6 82.4 27C82.4 20.4 78.8 16.5 72.2 16.5H66.5Z"/>
+  </g>
+  <path fill="#2563EB" fill-rule="evenodd" d="M103 26A9 9 0 1 1 103 44A9 9 0 0 1 103 26ZM103 29.1A2.1 2.1 0 0 0 101.5 32.6V39.4A1.5 1.5 0 0 0 104.5 39.4V32.6A2.1 2.1 0 0 0 103 29.1Z"/>
+  <g fill="#475569">
+    <path fill-rule="evenodd" d="M129 19.5C136.2 19.5 141.2 24.5 141.2 31.8C141.2 39.1 136.2 44.2 129 44.2C121.8 44.2 116.8 39.1 116.8 31.8C116.8 24.5 121.8 19.5 129 19.5ZM129 24.2C124.6 24.2 121.6 27.3 121.6 31.8C121.6 36.3 124.6 39.5 129 39.5C133.4 39.5 136.4 36.3 136.4 31.8C136.4 27.3 133.4 24.2 129 24.2Z"/>
+    <path d="M146.5 20.2H151.1V23.6C152.7 21 155.4 19.5 158.9 19.5C164.6 19.5 168.2 23.1 168.2 29.2V43.8H163.5V29.9C163.5 26.1 161.3 24.1 157.7 24.1C153.9 24.1 151.3 26.6 151.3 30.6V43.8H146.5V20.2Z"/>
+    <path fill-rule="evenodd" d="M185.5 19.5C192.6 19.5 197.2 24.3 197.2 31.4V33.2H178.4C178.9 37.3 181.8 39.8 185.9 39.8C188.9 39.8 191.2 38.5 192.3 36.4L196.4 38.2C194.6 42 190.8 44.2 185.8 44.2C178.4 44.2 173.6 39.1 173.6 31.8C173.6 24.5 178.5 19.5 185.5 19.5ZM178.5 29.4H192.4C191.9 25.8 189.3 23.8 185.5 23.8C181.8 23.8 179.1 25.9 178.5 29.4Z"/>
+  </g>
 </svg>
