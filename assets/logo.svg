@@ -1,13 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 56" width="210" height="56" fill="none">
-  <g fill="#0F172A">
-    <path d="M6 10H13.5V29.5C13.5 34.8 16.6 37.8 21.5 37.8C26.4 37.8 29.5 34.8 29.5 29.5V10H37V29.8C37 39.2 30.8 44.5 21.5 44.5C12.2 44.5 6 39.2 6 29.8V10Z"/>
-    <rect x="44" y="10" width="7.5" height="34" rx="1.5"/>
-    <path fill-rule="evenodd" d="M59 10H72.5C83.2 10 90 16.6 90 27C90 37.4 83.2 44 72.5 44H59V10ZM66.5 16.5V37.5H72.2C78.8 37.5 82.4 33.6 82.4 27C82.4 20.4 78.8 16.5 72.2 16.5H66.5Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 368 210" width="112" height="64" fill="none">
+  <defs>
+    <linearGradient id="uid-cyan-pillar" x1="184" y1="69" x2="184" y2="198" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="50%" stop-color="#0EA5E9"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+    <radialGradient id="uid-cyan-orb" cx="38%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#E0F2FE"/>
+      <stop offset="40%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </radialGradient>
+    <linearGradient id="uid-fiber-core" x1="184" y1="80" x2="184" y2="186" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E0F2FE" stop-opacity="0.88"/>
+      <stop offset="50%" stop-color="#7DD3FC" stop-opacity="0.58"/>
+      <stop offset="100%" stop-color="#E0F2FE" stop-opacity="0.82"/>
+    </linearGradient>
+  </defs>
+  <g fill="#0F172A" fill-rule="evenodd">
+    <path d="M 14 70 H 47 V 142 C 47 159.5 57.5 170 74.5 170 C 93 170 107 157.5 107 139 V 70 H 140 V 198 H 108.5 V 180.5 C 99.5 193 84.5 200 66 200 C 34.5 200 14 179.5 14 146 V 70 Z"/>
+    <path d="M 321 19 H 354 V 198 H 322.5 V 181.5 C 312.5 193.5 297 200 278.5 200 C 245.5 200 221 172.5 221 134 C 221 95.5 245.5 68 278.5 68 C 296.5 68 311.5 74.5 321 86 V 19 Z M 287.5 97.5 C 267.5 97.5 253.5 112.5 253.5 134 C 253.5 155.5 267.5 170.5 287.5 170.5 C 307.5 170.5 321.5 155.5 321.5 134 C 321.5 112.5 307.5 97.5 287.5 97.5 Z"/>
   </g>
-  <path fill="#2563EB" fill-rule="evenodd" d="M103 26A9 9 0 1 1 103 44A9 9 0 0 1 103 26ZM103 29.1A2.1 2.1 0 0 0 101.5 32.6V39.4A1.5 1.5 0 0 0 104.5 39.4V32.6A2.1 2.1 0 0 0 103 29.1Z"/>
-  <g fill="#475569">
-    <path fill-rule="evenodd" d="M129 19.5C136.2 19.5 141.2 24.5 141.2 31.8C141.2 39.1 136.2 44.2 129 44.2C121.8 44.2 116.8 39.1 116.8 31.8C116.8 24.5 121.8 19.5 129 19.5ZM129 24.2C124.6 24.2 121.6 27.3 121.6 31.8C121.6 36.3 124.6 39.5 129 39.5C133.4 39.5 136.4 36.3 136.4 31.8C136.4 27.3 133.4 24.2 129 24.2Z"/>
-    <path d="M146.5 20.2H151.1V23.6C152.7 21 155.4 19.5 158.9 19.5C164.6 19.5 168.2 23.1 168.2 29.2V43.8H163.5V29.9C163.5 26.1 161.3 24.1 157.7 24.1C153.9 24.1 151.3 26.6 151.3 30.6V43.8H146.5V20.2Z"/>
-    <path fill-rule="evenodd" d="M185.5 19.5C192.6 19.5 197.2 24.3 197.2 31.4V33.2H178.4C178.9 37.3 181.8 39.8 185.9 39.8C188.9 39.8 191.2 38.5 192.3 36.4L196.4 38.2C194.6 42 190.8 44.2 185.8 44.2C178.4 44.2 173.6 39.1 173.6 31.8C173.6 24.5 178.5 19.5 185.5 19.5ZM178.5 29.4H192.4C191.9 25.8 189.3 23.8 185.5 23.8C181.8 23.8 179.1 25.9 178.5 29.4Z"/>
+  <g>
+    <circle cx="184" cy="32" r="22.5" fill="#38BDF8" fill-opacity="0.16"/>
+    <rect x="163.5" y="66" width="41" height="134.5" rx="20.5" fill="#38BDF8" fill-opacity="0.14"/>
+    <circle cx="184" cy="32" r="19.2" fill="url(#uid-cyan-orb)"/>
+    <circle cx="184" cy="32" r="7.5" fill="#E0F2FE" fill-opacity="0.72"/>
+    <rect x="166.5" y="69" width="35" height="129" rx="17.5" fill="url(#uid-cyan-pillar)"/>
+    <rect x="172.5" y="75" width="23" height="117" rx="11.5" stroke="#BAE6FD" stroke-opacity="0.58" stroke-width="3"/>
+    <rect x="181" y="83" width="6" height="101" rx="3" fill="url(#uid-fiber-core)"/>
   </g>
 </svg>
