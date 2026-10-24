@@ -1,32 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 368 210" width="112" height="64" fill="none">
   <defs>
-    <linearGradient id="uid-cyan-pillar" x1="184" y1="69" x2="184" y2="198" gradientUnits="userSpaceOnUse">
+    <linearGradient id="uid-cyan" x1="184" y1="13" x2="184" y2="198" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#38BDF8"/>
-      <stop offset="50%" stop-color="#0EA5E9"/>
-      <stop offset="100%" stop-color="#0284C7"/>
-    </linearGradient>
-    <radialGradient id="uid-cyan-orb" cx="38%" cy="35%" r="65%">
-      <stop offset="0%" stop-color="#E0F2FE"/>
-      <stop offset="40%" stop-color="#38BDF8"/>
-      <stop offset="100%" stop-color="#0284C7"/>
-    </radialGradient>
-    <linearGradient id="uid-fiber-core" x1="184" y1="80" x2="184" y2="186" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#E0F2FE" stop-opacity="0.88"/>
-      <stop offset="50%" stop-color="#7DD3FC" stop-opacity="0.58"/>
-      <stop offset="100%" stop-color="#E0F2FE" stop-opacity="0.82"/>
+      <stop offset="100%" stop-color="#0EA5E9"/>
     </linearGradient>
   </defs>
-  <g fill="#0F172A" fill-rule="evenodd">
+  <g fill="#FFFFFF" fill-rule="evenodd">
     <path d="M 14 70 H 47 V 142 C 47 159.5 57.5 170 74.5 170 C 93 170 107 157.5 107 139 V 70 H 140 V 198 H 108.5 V 180.5 C 99.5 193 84.5 200 66 200 C 34.5 200 14 179.5 14 146 V 70 Z"/>
     <path d="M 321 19 H 354 V 198 H 322.5 V 181.5 C 312.5 193.5 297 200 278.5 200 C 245.5 200 221 172.5 221 134 C 221 95.5 245.5 68 278.5 68 C 296.5 68 311.5 74.5 321 86 V 19 Z M 287.5 97.5 C 267.5 97.5 253.5 112.5 253.5 134 C 253.5 155.5 267.5 170.5 287.5 170.5 C 307.5 170.5 321.5 155.5 321.5 134 C 321.5 112.5 307.5 97.5 287.5 97.5 Z"/>
   </g>
-  <g>
-    <circle cx="184" cy="32" r="22.5" fill="#38BDF8" fill-opacity="0.16"/>
-    <rect x="163.5" y="66" width="41" height="134.5" rx="20.5" fill="#38BDF8" fill-opacity="0.14"/>
-    <circle cx="184" cy="32" r="19.2" fill="url(#uid-cyan-orb)"/>
-    <circle cx="184" cy="32" r="7.5" fill="#E0F2FE" fill-opacity="0.72"/>
-    <rect x="166.5" y="69" width="35" height="129" rx="17.5" fill="url(#uid-cyan-pillar)"/>
-    <rect x="172.5" y="75" width="23" height="117" rx="11.5" stroke="#BAE6FD" stroke-opacity="0.58" stroke-width="3"/>
-    <rect x="181" y="83" width="6" height="101" rx="3" fill="url(#uid-fiber-core)"/>
+  <g fill="url(#uid-cyan)">
+    <circle cx="184" cy="32" r="19.2"/>
+    <rect x="166.5" y="69" width="35" height="129" rx="17.5"/>
   </g>
 </svg>
