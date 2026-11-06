@@ -419,11 +419,22 @@ export class OneUID {
     await this.storage.removeItem(this.REFRESH_KEY);
   }
 
-  getAuthorizeUrl(redirectUri: string): string {
+  getAuthorizeUrl(
+    redirectUri: string,
+    options?: { codeChallenge?: string; codeChallengeMethod?: 'S256'; state?: string; scope?: string }
+  ): string {
     const baseURL = this.config.baseURL.replace(/\/$/, '');
     const authUrl = `${baseURL}/oauth/authorize`;
     const encodedRedirect = encodeURIComponent(redirectUri);
-    return `${authUrl}?client_id=${this.config.clientId}&redirect_uri=${encodedRedirect}&response_type=code&scope=openid+profile+email`;
+    const scopeParam = encodeURIComponent(options?.scope || 'openid profile email').replace(/%20/g, '+');
+    let url = `${authUrl}?client_id=${this.config.clientId}&redirect_uri=${encodedRedirect}&response_type=code&scope=${scopeParam}`;
+    if (options?.codeChallenge) {
+      url += `&code_challenge=${encodeURIComponent(options.codeChallenge)}&code_challenge_method=${options.codeChallengeMethod || 'S256'}`;
+    }
+    if (options?.state) {
+      url += `&state=${encodeURIComponent(options.state)}`;
+    }
+    return url;
   }
 
   /**
@@ -683,6 +694,54 @@ export class OneUID {
 
     return response.json();
   }
+
+  // --- CONCISE SDK METHOD ALIASES (100% Backward Compatible) ---
+
+  async loginPassword(username: string, password: string): Promise<TokenResponse> {
+    return this.loginWithPassword(username, password);
+  }
+
+  async loginCode(code: string, redirectUri: string): Promise<TokenResponse> {
+    return this.loginWithCode(code, redirectUri);
+  }
+
+  async loginSocial(provider: string, token: string): Promise<TokenResponse> {
+    return this.loginWithProvider(provider, token);
+  }
+
+  async getPublicKey(identifier: string): Promise<UserPublicKey> {
+    return this.getUserPublicKey(identifier);
+  }
+
+  async addRecord(
+    title: string,
+    payload: string,
+    type: string = 'note',
+    sessionKey: string | null = null,
+    syncStatus: 'PENDING' | 'COMPLETED' = 'COMPLETED',
+    issuer: string | null = null,
+    signature: string | null = null
+  ): Promise<VaultRecord> {
+    return this.addVaultRecord(title, payload, type, sessionKey, syncStatus, issuer, signature);
+  }
+
+  async transferRecord(
+    recordId: string,
+    recipient: string,
+    payload: string,
+    sessionKey: string,
+    title?: string
+  ): Promise<{ status: string; message: string }> {
+    return this.transferVaultRecord(recordId, recipient, payload, sessionKey, title);
+  }
+
+  async getVaultKeys(): Promise<DeviceVaultKey[]> {
+    return this.getDeviceVaultKeys();
+  }
+
+  async registerVaultKey(deviceId: string, wrappedMVK: string): Promise<DeviceVaultKey> {
+    return this.registerDeviceVaultKey(deviceId, wrappedMVK);
+  }
 }
 
 export function parseError(errorData: any, fallback: string): string {
@@ -704,4 +763,5 @@ export function parseError(errorData: any, fallback: string): string {
     }
   }
   return fallback;
+
 }
