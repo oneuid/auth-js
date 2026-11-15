@@ -1,10 +1,142 @@
-import { AuthConfig, StorageAdapter, TokenResponse, UserProfile, IdentifyResponse, VerifyResponse, VaultRecord, UserPublicKey, DeviceVaultKey } from './types';
+import { AuthConfig, StorageAdapter, TokenResponse, UserProfile, IdentifyResponse, VerifyResponse, VaultRecord, UserPublicKey, DeviceVaultKey, ButtonOptions } from './types';
 import { getDefaultStorage } from './storage';
 import { PasskeyClient } from './passkey';
 import { SessionClient } from './session';
 import { RecoveryClient } from './recovery';
 import { DevicesClient } from './devices';
 import { KMSClient, KeyringStorageAdapter } from './kms';
+
+const BUTTON_LABELS: Record<string, string> = {
+  ar: 'تسجيل الدخول باستخدام OneUID',
+  de: 'Mit OneUID anmelden',
+  en: 'Sign in with OneUID',
+  es: 'Iniciar sesión con OneUID',
+  fr: 'Se connecter avec OneUID',
+  it: 'Accedi con OneUID',
+  ja: 'OneUIDでサインイン',
+  ko: 'OneUID로 로그인',
+  pt: 'Entrar com OneUID',
+  ru: 'Войти через OneUID',
+  th: 'เข้าสู่ระบบด้วย OneUID',
+  vi: 'Đăng nhập bằng OneUID',
+  'zh-hans': '使用 OneUID 登录',
+  'zh-hant': '使用 OneUID 登入',
+};
+
+const SHIELD_PATH =
+  'M 256 24 L 444 101 C 458.5 107 468 121 468 137 V 248 C 468 370 378 449 256 488 C 134 449 44 370 44 248 V 137 C 44 121 53.5 107 68 101 L 256 24 Z M 256 142.0 C 285.8 142.0 310.0 166.2 310.0 196.0 C 310.0 216.9 298.1 235.0 282.24 243.2 L 289.37 334.6 C 289.37 353.0 274.4 368.0 256.0 368.0 C 237.6 368.0 222.63 353.0 222.63 334.6 L 229.76 243.2 C 213.9 235.0 202.0 216.9 202.0 196.0 C 202.0 166.2 226.2 142.0 256.0 142.0 Z';
+
+const STYLE_ID = 'oneuid-sdk-styles';
+
+const BUTTON_CSS = `
+.oneuid-btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  text-decoration: none;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 120ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 150ms ease;
+}
+.oneuid-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.oneuid-btn:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+.oneuid-btn--small {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+  gap: 8px;
+}
+.oneuid-btn--medium {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+  gap: 10px;
+}
+.oneuid-btn--large {
+  height: 44px;
+  padding: 0 20px;
+  font-size: 15px;
+  gap: 10px;
+}
+.oneuid-btn--brand {
+  background-color: #2563EB;
+  color: #FFFFFF;
+  border: 1px solid #2563EB;
+  box-shadow: 0 1px 2px rgba(11, 18, 32, 0.12);
+}
+.oneuid-btn--brand:hover:not(:disabled) {
+  background-color: #1D4ED8;
+  border-color: #1D4ED8;
+}
+.oneuid-btn--dark {
+  background-color: #0B1220;
+  color: #F8FAFC;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
+}
+.oneuid-btn--dark:hover:not(:disabled) {
+  background-color: #111827;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.oneuid-btn--light {
+  background-color: #FFFFFF;
+  color: #0F172A;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+.oneuid-btn--light:hover:not(:disabled) {
+  background-color: #F8FAFC;
+  border-color: #CBD5E1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .oneuid-btn {
+    transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .oneuid-btn:active:not(:disabled) {
+    transform: none;
+  }
+}
+`;
+
+function resolveLocale(locale?: string): string {
+  const raw = (
+    locale ||
+    (typeof document !== 'undefined' ? document.documentElement?.lang : '') ||
+    (typeof navigator !== 'undefined' ? navigator.language : '') ||
+    'en'
+  )
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, '-');
+
+  if (!raw) return 'en';
+  if (BUTTON_LABELS[raw]) return raw;
+
+  if (raw.startsWith('zh')) {
+    if (raw.includes('hant') || raw.includes('tw') || raw.includes('hk') || raw.includes('mo')) {
+      return 'zh-hant';
+    }
+    return 'zh-hans';
+  }
+
+  const base = raw.split('-')[0];
+  return BUTTON_LABELS[base] ? base : 'en';
+}
 
 export class OneUID {
   private config: AuthConfig;
@@ -55,6 +187,15 @@ export class OneUID {
         document.head.appendChild(meta);
       }
     }
+  }
+
+  private injectStyles() {
+    if (typeof document === 'undefined' || !document.head) return;
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = BUTTON_CSS;
+    document.head.appendChild(style);
   }
 
   private getOidcEndpoint(type: 'token' | 'certs' | 'revoke' | 'userinfo'): string {
@@ -387,7 +528,7 @@ export class OneUID {
 
   /**
    * Disconnects the user from this application by revoking the access token.
-   * Note: This does NOT delete the user's global UID.ONE account.
+   * Note: This does NOT delete the user's global OneUID account.
    * You should delete the local Shadow Profile in your application before calling this.
    */
   async disconnect(): Promise<void> {
@@ -438,7 +579,7 @@ export class OneUID {
   }
 
   /**
-   * Generates the OAuth redirect URL for a social login provider on the UID.ONE Gateway.
+   * Generates the OAuth redirect URL for a social login provider on the OneUID Gateway.
    * @deprecated Social redirect views have been decommissioned. Use native client flows instead.
    */
   getSocialRedirectUrl(provider: 'google' | 'facebook' | 'apple', redirectUri: string): string {
@@ -448,14 +589,9 @@ export class OneUID {
   }
 
   /**
-   * Renders a premium, pre-styled UID.ONE Login Button inside a DOM container.
+   * Renders a Cryptographic Minimal OneUID sign-in button inside a DOM container.
    */
-  renderButton(containerId: string, options: {
-    provider: 'google' | 'facebook' | 'apple' | 'uid';
-    redirectUri: string;
-    theme?: 'light' | 'dark';
-    size?: 'small' | 'medium' | 'large';
-  }) {
+  renderButton(containerId: string, options: ButtonOptions) {
     if (typeof document === 'undefined') return;
     const container = document.getElementById(containerId);
     if (!container) {
@@ -463,77 +599,73 @@ export class OneUID {
       return;
     }
 
-    const { provider, redirectUri, theme = 'dark', size = 'medium' } = options;
+    this.injectStyles();
+
+    const {
+      provider = 'uid',
+      redirectUri,
+      theme = 'dark',
+      size = 'medium',
+      locale,
+      label: custom,
+      onProviderClick,
+    } = options;
+
+    const lang = resolveLocale(locale);
+    const isRtl = lang === 'ar';
+    const tone = theme === 'light' || theme === 'brand' ? theme : 'dark';
+    const scale = size === 'small' || size === 'large' ? size : 'medium';
+    const iconPx = scale === 'small' ? 16 : scale === 'large' ? 20 : 18;
+
     const btn = document.createElement('button');
     btn.type = 'button';
-    
-    const isDark = theme === 'dark';
-    const bg = isDark ? '#111111' : '#ffffff';
-    const color = isDark ? '#ffffff' : '#111111';
-    const border = isDark ? '1px solid #222222' : '1px solid #e2e8f0';
-    const hoverBg = isDark ? '#222222' : '#f8fafc';
-    
-    let padding = '10px 16px';
-    let fontSize = '14px';
-    if (size === 'small') {
-      padding = '6px 12px';
-      fontSize = '12px';
-    } else if (size === 'large') {
-      padding = '14px 24px';
-      fontSize = '16px';
+    btn.className = `oneuid-btn oneuid-btn--${tone} oneuid-btn--${scale}`;
+    btn.lang = lang;
+    if (isRtl) {
+      btn.dir = 'rtl';
     }
-
-    btn.style.cssText = `
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      padding: ${padding};
-      font-size: ${fontSize};
-      font-family: 'Inter', -apple-system, sans-serif;
-      font-weight: 500;
-      background: ${bg};
-      color: ${color};
-      border: ${border};
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    `;
-
-    btn.onmouseover = () => {
-      btn.style.background = hoverBg;
-    };
-    btn.onmouseout = () => {
-      btn.style.background = bg;
-    };
 
     let iconSvg = '';
-    let label = 'UID.ONE';
+    let text = BUTTON_LABELS[lang] || BUTTON_LABELS.en;
 
     if (provider === 'google') {
-      iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>`;
-      label = 'Sign in with Google';
+      iconSvg = `<svg width="${iconPx}" height="${iconPx}" viewBox="0 0 24 24" aria-hidden="true" focusable="false" style="flex-shrink:0" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>`;
+      text = 'Sign in with Google';
     } else if (provider === 'facebook') {
-      iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2" xmlns="http://www.w3.org/2000/svg"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`;
-      label = 'Sign in with Facebook';
+      const fbFill = tone === 'brand' ? '#FFFFFF' : '#1877F2';
+      iconSvg = `<svg width="${iconPx}" height="${iconPx}" viewBox="0 0 24 24" fill="${fbFill}" aria-hidden="true" focusable="false" style="flex-shrink:0" xmlns="http://www.w3.org/2000/svg"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`;
+      text = 'Sign in with Facebook';
     } else if (provider === 'apple') {
-      iconSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="${isDark ? '#ffffff' : '#000000'}" xmlns="http://www.w3.org/2000/svg"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-.1.77-1.07 1.25-.8 2.63-.73 3.58-.29.39.17 1.5.54 2.21 1.58-.57.35-1.71 1.01-1.71 2.37 0 1.63 1.33 2.2 1.34 2.2-.01.04-.21.72-.71 1.45zM15.97 4.17c.6-1.03.37-2.35-.33-3.17-.68-.8-1.92-1.05-3-.33-.66.69-.4 2.02.26 2.82.68.79 1.99.78 3.07-.32z"/></svg>`;
-      label = 'Sign in with Apple';
+      const fill = tone === 'light' ? '#0F172A' : '#FFFFFF';
+      iconSvg = `<svg width="${iconPx}" height="${iconPx}" viewBox="0 0 24 24" fill="${fill}" aria-hidden="true" focusable="false" style="flex-shrink:0" xmlns="http://www.w3.org/2000/svg"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-.1.77-1.07 1.25-.8 2.63-.73 3.58-.29.39.17 1.5.54 2.21 1.58-.57.35-1.71 1.01-1.71 2.37 0 1.63 1.33 2.2 1.34 2.2-.01.04-.21.72-.71 1.45zM15.97 4.17c.6-1.03.37-2.35-.33-3.17-.68-.8-1.92-1.05-3-.33-.66.69-.4 2.02.26 2.82.68.79 1.99.78 3.07-.32z"/></svg>`;
+      text = 'Sign in with Apple';
     } else {
-      iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-fingerprint"><path d="M18.9 7a8 8 0 0 1 1.1 5v1a6 6 0 0 0 .8 3M8 11a4 4 0 0 1 8 0v1a10 10 0 0 0 .8 4M12 11v2a14 14 0 0 0 .8 4.5M3 12a10 10 0 0 1 13.7-9.3M5.8 15a7 7 0 0 1 6.2-11.3M8.8 17.8A4 4 0 0 1 8 12a5 5 0 0 1 .2-1.5M10.8 20.2a2 2 0 0 1-1.8-3.2"/></svg>`;
-      label = 'Sign in with UID.ONE';
+      const fill = tone === 'brand' ? '#FFFFFF' : '#2563EB';
+      iconSvg = `<svg width="${iconPx}" height="${iconPx}" viewBox="0 0 512 512" fill="none" aria-hidden="true" focusable="false" style="flex-shrink:0" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" fill="${fill}" d="${SHIELD_PATH}"/></svg>`;
     }
 
-    btn.innerHTML = `${iconSvg} <span>${label}</span>`;
-    btn.onclick = () => {
+    const iconWrap = document.createElement('span');
+    iconWrap.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;';
+    iconWrap.innerHTML = iconSvg;
+
+    const labelEl = document.createElement('span');
+    labelEl.textContent = custom || text;
+
+    btn.appendChild(iconWrap);
+    btn.appendChild(labelEl);
+
+    btn.addEventListener('click', () => {
       if (provider === 'uid') {
-        window.location.href = `${this.config.baseURL}/login/?client_id=${this.config.clientId}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+        const base = this.config.baseURL.replace(/\/$/, '');
+        window.location.href = `${base}/login/?client_id=${encodeURIComponent(this.config.clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      } else if (typeof onProviderClick === 'function') {
+        onProviderClick(provider);
       } else {
-        console.error(`Social login rendering via renderButton is decommissioned. Please perform native OAuth redirects directly from your client application for provider: ${provider}`);
-        alert(`Social login for ${provider} must be initiated directly from your application using the Native Client Flow.`);
+        console.warn(
+          `[OneUID] Social login for "${provider}" requires a native client OAuth flow. Provide options.onProviderClick("${provider}") to handle this action.`
+        );
       }
-    };
+    });
 
     container.innerHTML = '';
     container.appendChild(btn);

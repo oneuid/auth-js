@@ -45,6 +45,20 @@ export interface AuthConfig {
   baseURL: string; // e.g., 'http://localhost:8001' or 'https://api.uid.one'
 }
 
+export type ButtonTheme = 'dark' | 'light' | 'brand';
+export type ButtonSize = 'small' | 'medium' | 'large';
+export type ButtonProvider = 'uid' | 'google' | 'facebook' | 'apple';
+
+export interface ButtonOptions {
+  provider?: ButtonProvider;
+  redirectUri: string;
+  theme?: ButtonTheme;
+  size?: ButtonSize;
+  locale?: string;
+  label?: string;
+  onProviderClick?: (provider: string) => void;
+}
+
 export interface StorageAdapter {
   getItem(key: string): Promise<string | null> | string | null;
   setItem(key: string, value: string): Promise<void> | void;
