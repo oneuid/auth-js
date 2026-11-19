@@ -1,0 +1,51 @@
+name: Publish @oneuid-auth-js/core to npm
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Build, Typecheck & Publish to npm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22 & npm Registry
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Enable Corepack & Install Dependencies
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: Build & Typecheck SDK
+        run: |
+          pnpm run build
+          pnpm run lint
+
+      - name: Publish to npm Registry
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::Missing NPM_TOKEN repository secret in oneuid/auth-js."
+            exit 1
+          fi
+          PKG_VER=$(node -p "require('./package.json').version")
+          PUBLISHED_VER=$(npm view @oneuid-auth-js/core version 2>/dev/null || echo "")
+          if [ "$PKG_VER" = "$PUBLISHED_VER" ]; then
+            echo "Version $PKG_VER is already published on npm; skipping duplicate publish."
+            exit 0
+          fi
+          npm publish --access public --provenance
