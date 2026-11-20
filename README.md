@@ -15,7 +15,7 @@ Designed for maximum flexibility, this SDK provides a headless authentication cl
 - **Cross-Device Auth (QR):** Seamlessly authenticate across devices using Zero-Trust QR Challenges.
 - **Zero-Trust Digital Signatures:** Initiate and verify PKCS#7 document signatures without exposing the document payload to the server.
 - **Sovereign Device (HSM) Integration:** Transform mobile apps into Hardware Security Modules (HSM) via on-device RSA keypair generation (`node-forge`).
-- **Pluggable Storage Adapters:** Built-in `LocalStorageAdapter` and `MemoryStorageAdapter`. Easily write your own adapter for `AsyncStorage` (React Native) or Secure Enclaves.
+- **Pluggable Storage Adapters:** Defaults to `MemoryStorageAdapter` (never persists refresh tokens in `localStorage`); supports custom Secure Enclave (`expo-secure-store`) or explicit `LocalStorageAdapter` integrations.
 - **Ecosystem Session Exchange:** Securely exchange UID.ONE tokens for local shadow profile sessions in your applications (e.g., Trip.Express) using JWKS local verification.
 
 ## 🛡 Decentralized Availability (Zero-Trust Autonomy)
@@ -40,7 +40,7 @@ pnpm add @oneuid-auth-js/core
 
 ### 1. Initialization
 
-Create a singleton instance of the `OneUID` client. By default, it uses `MemoryStorageAdapter` if `window` is undefined, and `LocalStorageAdapter` in the browser.
+Create a singleton instance of the `OneUID` client. By default, it uses `MemoryStorageAdapter` across all runtimes so refresh tokens are never persisted in `localStorage`.
 
 ```typescript
 import { OneUID } from '@oneuid-auth-js/core';
@@ -51,9 +51,11 @@ export const auth = new OneUID({
 });
 ```
 
+> **URL security:** `baseURL` and `redirectUri` require `https://` (`http://localhost` and `http://127.0.0.1` are permitted for local development only). Never configure `clientSecret` in browser bundles; any `clientSecret` supplied in a browser runtime is ignored.
+
 ### 1.1 Embedding Pre-Styled Buttons (Zero-Code Integration)
 
-For developers looking to integrate sign-in controls with minimal footprint, the SDK provides a built-in DOM-rendering engine to embed responsive, brand-consistent buttons (using native elements, preventing external CSS collisions or bundle bloat):
+For developers looking to integrate sign-in controls with minimal footprint, the SDK provides a built-in DOM-rendering engine to embed responsive, brand-consistent buttons (all sizes enforce at least a `44x44px` hit target, loading/disabled lock, and inline retryable error feedback):
 
 **HTML Container:**
 ```html
@@ -62,13 +64,24 @@ For developers looking to integrate sign-in controls with minimal footprint, the
 
 **SDK Initialization:**
 ```typescript
-// Render standard Passkey / UID.ONE authentication button
+// Starts an OIDC Authorization Code + PKCE (S256) flow with random state and nonce
 auth.renderButton('uid-login-container', {
   provider: 'uid', // Options: 'uid' | 'google' | 'facebook' | 'apple'
   redirectUri: 'https://trip.express/auth/callback',
-  theme: 'dark', // Options: 'light' | 'dark'
-  size: 'medium', // Options: 'small' | 'medium' | 'large'
+  theme: 'dark', // Options: 'light' | 'dark' | 'brand'
+  size: 'medium', // Options: 'small' | 'medium' | 'large' (all >= 44px height)
 });
+```
+
+### 1.2 OIDC Authorization Code + PKCE Flow (Recommended for Web & SPAs)
+
+```typescript
+// 1. Start authorization (generates S256 code_challenge, state, and nonce)
+const { url } = await auth.startAuthorization('https://app.example.com/auth/callback');
+window.location.href = url;
+
+// 2. On /auth/callback, verify state, exchange code with code_verifier, and verify JWTs via JWKS
+const tokens = await auth.handleRedirectCallback();
 ```
 
 ### 2. Passwordless Authentication (Passkey)
@@ -76,29 +89,28 @@ auth.renderButton('uid-login-container', {
 UID.ONE defaults to Sovereign Identity (Passwordless).
 
 ```typescript
-// Triggers the OS Biometrics (FaceID/TouchID) and handles the full challenge-response loop securely
+// Triggers OS biometrics and verifies returned JWTs against the issuer JWKS
 try {
-  const session = await auth.passkey.login();
-  console.log('Passkey login successful!', session.access_token);
+  await auth.passkey.login();
 } catch (error) {
-  console.error('Passkey authentication failed:', error);
+  console.error('Passkey authentication failed');
 }
 ```
 
 ### 3. Application Integration (Session Exchange Pattern)
 
-For ecosystem applications (like `Trip.Express` or local clients), you should not rely solely on the UID.ONE token in the browser. Instead, use the SDK to get the UID.ONE Identity Token, and exchange it with your own backend to issue a local HTTP-Only Session Cookie.
+For ecosystem applications, keep refresh tokens out of `localStorage` and exchange only the verified `id_token` (or `access_token`) with your backend to mint a local `httpOnly` session cookie.
 
 **Frontend (Client Component):**
 ```typescript
-// Get token via Passkey, Social, or Email/Password
 const session = await auth.passkey.login();
-const uidToken = `${session.access_token}:::${session.refresh_token || ""}`;
+const assertionToken = session.id_token || session.access_token;
 
-// Send to your App's backend for Session Exchange
-await fetch('/api/auth/social', {
-    method: 'POST',
-    body: JSON.stringify({ provider: 'passkey', token: uidToken })
+// Send only the ID/access assertion token (never the refresh token)
+await fetch('/api/auth/session', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ token: assertionToken }),
 });
 ```
 
@@ -107,116 +119,140 @@ await fetch('/api/auth/social', {
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 export async function verifyUidSession(token: string) {
-    try {
-        // 1. Fetch the JWKS from UID.ONE to verify the token asynchronously
-        // UID_ONE_ISSUER_URL should be: https://auth.uid.one
-        const jwksUrl = new URL(`${process.env.UID_ONE_ISSUER_URL}/oauth/certs`);
-        const JWKS = createRemoteJWKSet(jwksUrl);
-        
-        // 2. Verify the Token Signature (Zero-Trust Cryptographic Verification)
-        const { payload } = await jwtVerify(token, JWKS, {
-            issuer: process.env.UID_ONE_ISSUER_URL,
-            audience: process.env.UID_ONE_CLIENT_ID, // e.g., 'trip-express'
-        });
-        
-        // 3. Sync Shadow Profile & Issue Local Session
-        const localUser = await syncShadowProfileWithDatabase(payload.sub, payload.email);
-        await createLocalHttpOnlySession(localUser);
-        
-        return { success: true };
-    } catch (error) {
-        console.error("Token verification failed:", error);
-        return { success: false };
-    }
+  try {
+    const jwksUrl = new URL(`${process.env.UID_ONE_ISSUER_URL}/oauth/certs`);
+    const JWKS = createRemoteJWKSet(jwksUrl);
+
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer: process.env.UID_ONE_ISSUER_URL, // e.g. 'https://auth.uid.one'
+      audience: process.env.UID_ONE_CLIENT_ID,
+      algorithms: ['RS256'],
+    });
+
+    const localUser = await syncShadowProfileWithDatabase(payload.sub, payload.email);
+    await createLocalHttpOnlySession(localUser);
+
+    return { success: true };
+  } catch {
+    return { success: false };
+  }
 }
 ```
 
-### 3.1 Native Social Authentication (Google, Facebook, Apple)
+### 3.1 Native Social Authentication (Authorization Code + PKCE)
 
-Instead of routing through a middleman redirect on the UID.ONE gateway (which has been decommissioned), social login is performed via a **Native Client Flow**. 
+Social login must use the provider's **Authorization Code + PKCE (`S256`)** flow with a cryptographically random `state` (and `nonce` for OIDC providers). Never use `response_type=token` (implicit flow) or pass a `clientSecret` from browser code.
 
-Your application redirects the user directly to the social provider's authorization page (Google, Facebook, Apple). Once the provider redirects back with a token, your application exchanges it for a secure UID.ONE session using `auth.loginWithProvider()`.
-
-#### 1. Redirect to Provider (Client-side)
+#### 1. Redirect to Provider (Client-side with PKCE + random state/nonce)
 ```typescript
-const handleSocialAuth = (provider: 'google' | 'facebook' | 'apple') => {
-  const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
-  
-  let authUrl = '';
-  if (provider === 'google') {
-    const clientId = 'YOUR_GOOGLE_CLIENT_ID';
-    authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${clientId}&redirect_uri=${redirectUri}&scope=openid%20email%20profile&state=${provider}`;
-  } else if (provider === 'facebook') {
-    const clientId = 'YOUR_FACEBOOK_CLIENT_ID';
-    authUrl = `https://www.facebook.com/v12.0/dialog/oauth?response_type=token&client_id=${clientId}&redirect_uri=${redirectUri}&scope=email,public_profile&state=${provider}`;
-  } else if (provider === 'apple') {
-    const clientId = 'YOUR_APPLE_CLIENT_ID';
-    authUrl = `https://appleid.apple.com/auth/authorize?response_type=code%20id_token&client_id=${clientId}&redirect_uri=${redirectUri}&scope=name%20email&response_mode=form_post&state=${provider}`;
-  }
+import { generateCodeVerifier, deriveCodeChallengeS256, generateRandomToken } from '@oneuid-auth-js/core';
 
-  window.location.href = authUrl;
+const startGoogleAuth = async () => {
+  const redirectUri = `${window.location.origin}/auth/callback`;
+  const verifier = generateCodeVerifier();
+  const challenge = await deriveCodeChallengeS256(verifier);
+  const state = generateRandomToken(32);
+  const nonce = generateRandomToken(32);
+
+  sessionStorage.setItem('oauth_tx', JSON.stringify({ provider: 'google', verifier, state, nonce }));
+
+  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('client_id', 'YOUR_GOOGLE_CLIENT_ID');
+  url.searchParams.set('redirect_uri', redirectUri);
+  url.searchParams.set('scope', 'openid email profile');
+  url.searchParams.set('code_challenge', challenge);
+  url.searchParams.set('code_challenge_method', 'S256');
+  url.searchParams.set('state', state);
+  url.searchParams.set('nonce', nonce);
+
+  window.location.href = url.toString();
 };
 ```
 
-#### 2. Exchange Provider Token on Callback Page
-Once the user authorizes, they return to your callback route. Extract the provider's token (`access_token`, `id_token` or `code`) and call the SDK:
-
+#### 2. Verify `state` and Exchange Authorization Code
 ```typescript
-// Example inside /auth/callback component
-const hashParams = new URLSearchParams(window.location.hash.substring(1));
-const provider = hashParams.get("state") as 'google' | 'facebook' | 'apple';
-const providerToken = hashParams.get("access_token") || hashParams.get("id_token") || hashParams.get("code");
+const params = new URLSearchParams(window.location.search);
+const code = params.get('code');
+const returnedState = params.get('state');
+const stored = JSON.parse(sessionStorage.getItem('oauth_tx') || 'null');
+sessionStorage.removeItem('oauth_tx');
 
-if (provider && providerToken) {
-  try {
-    // Exchange third-party token for UID.ONE session credentials
-    const session = await auth.loginWithProvider(provider, providerToken);
-    console.log('Login successful!', session.access_token);
-    
-    // Proceed to exchange session with your App backend (Section 3 above)
-  } catch (error) {
-    console.error('Social token exchange failed:', error);
-  }
+if (code && stored && returnedState === stored.state) {
+  await auth.loginWithProvider(stored.provider, code, {
+    nonce: stored.nonce,
+    codeVerifier: stored.verifier,
+    redirectUri: `${window.location.origin}/auth/callback`,
+  });
 }
 ```
 
-### 4. Standard Login (Email/Password) - Legacy Fallback
+### 4. Password Login Fallback (Two-Step with 2FA)
 
-Authenticate users using standard credentials if they haven't migrated to Passkeys yet.
+Prefer `auth.startAuthorization()` (PKCE) or Passkeys for user login. Direct password grants (`loginWithPassword`) are deprecated and disabled by default because they bypass 2FA. When a password fallback is required, use the two-step `verifyPassword` + `verify2FA` flow:
 
 ```typescript
-try {
-  const data = await auth.loginWithPassword('user@trip.express', 'supersecretpassword');
-  console.log('Login successful!', data.access_token);
-} catch (error) {
-  console.error('Login failed:', error);
+const step1 = await auth.verifyPassword('user@example.com', passwordInput);
+
+if (step1.status === 'PENDING_2FA' && step1.session_token) {
+  await auth.verify2FA({
+    session_token: step1.session_token,
+    method: 'totp',
+    code: totpCodeInput,
+  });
+} else if (step1.status === 'SETUP_REQUIRED') {
+  // Prompt the user to enroll 2FA using step1.setup_token before completing sign-in
 }
 ```
 
-## 🛠 Advanced: Custom Storage Adapters (React Native)
+### 4.1 Account Discovery & Registration Notes
 
-If you are building for React Native or Expo, you can inject a custom `StorageAdapter` during initialization.
+- `auth.identify(email)` queries `/v1/auth/identify/` and can reveal whether an account exists and which authentication factors are enabled. Enforce strict rate limiting on login forms and never treat `session_token` from `identify()` as a session credential.
+- `auth.register(email, password)` creates an unverified account (`{ verification_required: true }`) and never persists session tokens. Complete email or passcode verification (`auth.verifyPasscode`) before signing in.
+
+### 4.2 Cross-Device Auth (QR / Extension Challenges)
+
+`session_id` is a bearer secret — never place it in predictable URLs without origin binding. Approvers must inspect challenge metadata via `auth.session.get(sessionId)` and confirm the displayed `matchNumber` before calling `approve()`:
+
+```typescript
+// Requestor (web)
+const challenge = await auth.session.create('QR', 'app.example.com');
+const ac = new AbortController();
+const tokens = await auth.session.pollForApproval(challenge.session_id, {
+  intervalMs: 2000,
+  timeoutMs: 120_000,
+  signal: ac.signal,
+});
+
+// Approver (authenticated mobile device)
+const details = await auth.session.get(challenge.session_id);
+await auth.session.approve(details.session_id, { matchNumber: userConfirmedCode });
+```
+
+## 🛠 Advanced: Custom Storage Adapters (React Native & Mobile)
+
+On web, keep tokens in the default `MemoryStorageAdapter` (paired with an `httpOnly` backend session). On React Native or Expo, inject a hardware-backed adapter such as `expo-secure-store` (do not store refresh tokens in unencrypted `localStorage`):
 
 ```typescript
 import { OneUID, StorageAdapter } from '@oneuid-auth-js/core';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
-class ReactNativeStorage implements StorageAdapter {
+class SecureEnclaveStorage implements StorageAdapter {
   async getItem(key: string): Promise<string | null> {
-    return await AsyncStorage.getItem(key);
+    return await SecureStore.getItemAsync(key);
   }
   async setItem(key: string, value: string): Promise<void> {
-    await AsyncStorage.setItem(key, value);
+    await SecureStore.setItemAsync(key, value);
   }
   async removeItem(key: string): Promise<void> {
-    await AsyncStorage.removeItem(key);
+    await SecureStore.deleteItemAsync(key);
   }
 }
 
 const auth = new OneUID({
-  baseURL: 'https://api.uid.one',
+  baseURL: 'https://auth.uid.one',
   clientId: 'your-client-id',
-  storage: new ReactNativeStorage()
+  storage: new SecureEnclaveStorage(),
 });
 ```
 
@@ -262,12 +298,10 @@ The SDK provides direct APIs for Zero-Knowledge Vault storage and secure asymmet
 ```typescript
 // Query the active device public key of the recipient by their email, username, or UID
 const recipientPubKeyInfo = await auth.getUserPublicKey('recipient@trip.express');
-console.log('Public Key:', recipientPubKeyInfo.public_key);
 ```
 
 #### Save a Record to the User's Vault (AES-GCM encrypted local payload)
 ```typescript
-// Add a new encrypted record with optional Signed Provenance
 const record = await auth.addVaultRecord(
   'My Secure Ticket',
   'ENCRYPTED_PAYLOAD_HERE',
@@ -295,10 +329,6 @@ const record = await auth.addVaultRecord(
 
 #### Transfer ownership of a Vault Record (Hybrid asymmetric wrapping)
 ```typescript
-// 1. Decrypt locally with your Master Vault Key (MVK)
-// 2. Encrypt the record session key using the recipient's public key (Key Wrapping)
-// 3. Encrypt the record payload using the session key
-// 4. Send the payload and wrapped session key to the server to initiate transfer
 await auth.transferVaultRecord(
   'record-id-uuid',
   'recipient@trip.express',           // Recipient identifier
@@ -308,66 +338,56 @@ await auth.transferVaultRecord(
 ```
 
 #### Manage Device-bound Master Vault Keys (MVK)
-To support multi-device access without storing raw vault keys on the server, you encrypt the Master Vault Key (MVK) with each device's public key (Key Wrapping) and register it:
 ```typescript
-// Register a wrapped MVK for a new device
 await auth.registerDeviceVaultKey('unique-device-id', 'WRAPPED_MVK_PEM');
-
-// Retrieve all wrapped MVKs for the current user
 const keys = await auth.getDeviceVaultKeys();
 ```
 
-## 🔑 KMS & Envelope Encryption
+## 🔑 KMS & Envelope Encryption (Server-Side)
 
-For applications requiring client-side database encryption or strict data sovereignty, the SDK provides a high-performance, cross-platform `KMSClient` powered by the Web Crypto API to perform local envelope encryption and decryption with local keyring cache database fallback.
+For server-side applications requiring envelope encryption, `KMSClient` uses the Web Crypto API (`AES-GCM`) with an explicit KEK (`initKMS({ kekB64 })`). `OneUID` never auto-loads `VAULT_MASTER_KEY` from `process.env`, and `initKMS` refuses static KEKs in browser runtimes (browser callers must provide an explicit non-env `keyProvider`).
 
-### SDK KMS Integration (Offline-Resilient Cryptography)
+### Server-Only KMS Integration
 
 ```typescript
 import { OneUID } from '@oneuid-auth-js/core';
 
+// Server-side only (never pass kekB64 or clientSecret to browser code)
 const auth = new OneUID({
-    baseURL: 'https://api.uid.one',
-    clientId: 'trip_express_core',
-    clientSecret: 'my-client-secret'
+  baseURL: 'https://api.uid.one',
+  clientId: 'your-server-client-id',
 });
 
-// Initialize KMS with your Master Key (KEK) and optional database keyring storage
 const kms = auth.initKMS({
-    kekB64: process.env.VAULT_MASTER_KEY, // Base64 encoded 256-bit key
-    keyringStorage: {
-        async getItem(key) {
-            // Retrieve from your local persistent database (e.g. Prisma / Postgres)
-            const record = await db.cipher.findUnique({ where: { versionKey: key } });
-            return record?.keyMaterial || null;
-        },
-        async setItem(key, wrappedDek) {
-            // Persist to your local database for offline fallback
-            const version = parseInt(key.replace('cipher_version_', ''));
-            await db.cipher.upsert({
-                where: { version },
-                update: { keyMaterial: wrappedDek },
-                create: { version, keyMaterial: wrappedDek }
-            });
-        }
-    }
+  kekB64: process.env.VAULT_MASTER_KEY, // Explicit 256-bit base64 key on the server
+  keyringStorage: {
+    async getItem(key) {
+      const record = await db.cipher.findUnique({ where: { versionKey: key } });
+      return record?.keyMaterial || null;
+    },
+    async setItem(key, wrappedDek) {
+      const version = parseInt(key.replace('cipher_version_', ''), 10);
+      await db.cipher.upsert({
+        where: { version },
+        update: { keyMaterial: wrappedDek },
+        create: { version, keyMaterial: wrappedDek },
+      });
+    },
+  },
 });
 
-// 1. Encrypt PII data (uses the active DEK)
-const { ciphertext, version } = await kms.encrypt('John Doe');
-// Stored format in DB: `${version}:${ciphertext}`
+// 1. Encrypt data using active DEK
+const { ciphertext, version } = await kms.encrypt('Sensitive payload');
 
-// 2. Decrypt PII data (automatically unwrap DEK locally)
+// 2. Decrypt data using wrapped DEK version
 const plaintext = await kms.decrypt(ciphertext, version);
-console.log('Plaintext:', plaintext); // 'John Doe'
 ```
 
-### Key Lifecycle & Resilience (4-Tier Circuit Breaker)
-UID.ONE utilizes a state-of-the-art caching and fallback architecture to ensure maximum availability:
-- **Active Cache (Tier 1)**: Credentials and decrypted master keys are securely cached for up to 1 hour. STS credentials are automatically refreshed **5 minutes** before expiration.
-- **Read-Only Fallback (Tier 2)**: If your KMS goes offline, UID.ONE falls back to expired cached keys (up to 24 hours old) for read-only detokenization, allowing existing sessions and read flows to continue.
-- **Cold Cache Blockage (Tier 3)**: If KMS is offline and no cache is available, any operation raises `KMSUnavailableError` (HTTP 503).
-- **Write Degradation (Tier 4)**: Write operations are blocked (`KMSDegradedWriteError`) during KMS downtime to prevent orphaned data.
+### Key Cache TTL & Offline Behavior
+
+- **Active Cache (1 hour):** Unwrapped DEKs are cached in memory for up to `3600` seconds for both `encrypt()` and `decrypt()`.
+- **Read-Only Fallback (24 hours):** If the remote KMS is unreachable during `decrypt(ciphertext, version)`, cached or `keyringStorage` DEKs remain usable for up to `86400` seconds (24 hours). Keys older than 24 hours are evicted.
+- **Fail-Closed Writes:** If the remote KMS is unreachable during `encrypt()`, `KMSClient` throws an `AuthError` (`kms_unreachable`) instead of writing with an unverified active cipher version.
 
 ## ⚙️ Production Web Server Tuning (Nginx / Apache)
 

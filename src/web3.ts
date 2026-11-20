@@ -56,13 +56,13 @@ export async function importPublicKey(publicKey: Uint8Array): Promise<CryptoKey>
     "raw",
     publicKey as any,
     { name: "Ed25519" },
-    true,
+    false,
     ["verify"]
   );
 }
 
 /**
- * Imports a raw 32-byte Ed25519 private key (using PKCS8 wrapping).
+ * Imports a raw 32-byte Ed25519 private key (using PKCS8 wrapping) as non-extractable.
  */
 export async function importPrivateKey(privateKey: Uint8Array): Promise<CryptoKey> {
   const pkcs8 = new Uint8Array(16 + privateKey.length);
@@ -73,7 +73,7 @@ export async function importPrivateKey(privateKey: Uint8Array): Promise<CryptoKe
     "pkcs8",
     pkcs8 as any,
     { name: "Ed25519" },
-    true,
+    false,
     ["sign"]
   );
 }

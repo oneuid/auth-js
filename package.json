@@ -1,6 +1,6 @@
 {
   "name": "@oneuid-auth-js/core",
-  "version": "0.1.28",
+  "version": "0.1.29",
   "description": "Headless Authentication SDK for UID.ONE AI OS",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -21,7 +21,8 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "lint": "tsc --noEmit",
-    "prepublishOnly": "npm run build && npm run lint"
+    "test": "node --test tests/*.test.mjs",
+    "prepublishOnly": "npm run build && npm run lint && npm test"
   },
   "author": "UID.ONE",
   "license": "MIT",

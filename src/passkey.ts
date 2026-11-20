@@ -91,7 +91,7 @@ export class PasskeyClient {
     }
 
     const tokens: TokenResponse = await verifyRes.json();
-    await (this.root as any).persistTokens(tokens);
+    await this.root.persistTokens(tokens, { flow: 'first_party' });
     return tokens;
   }
 }

@@ -49,7 +49,7 @@ export class RecoveryClient {
     }
 
     const tokens: TokenResponse = await res.json();
-    await (this.root as any).persistTokens(tokens);
+    await this.root.persistTokens(tokens, { flow: 'first_party' });
     return tokens;
   }
 }
