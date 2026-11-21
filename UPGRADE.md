@@ -2,7 +2,7 @@
 
 > **Repository**: `oneuid/auth-js` (`@oneuid-auth-js/core` Headless TypeScript Authentication & Passkey SDK)
 > **Ecosystem**: OneUID
-> **Current version**: `v0.1.30` (2026-11-21)
+> **Current version**: `v0.1.31` (2026-11-21)
 > **Release policy**: Updated automatically via `python3 /home/s/Projects/getding.io/scripts/release.py` and verified by `gate.py` before every release push.
 
 ## Feature inventory
@@ -17,6 +17,10 @@
 | **Adapters** | `src/` | `clientId`-namespaced storage defaulting to `MemoryStorageAdapter` with exported `LocalStorageAdapter` (XSS warning) and custom `StorageAdapter` interfaces |
 
 ## Release log
+
+### Version 0.1.31 - 2026-11-21
+
+- **[FIXED]** Pinned `"packageManager": "pnpm@10.26.2"` in `package.json`, added `pnpm-workspace.yaml` with `onlyBuiltDependencies: [esbuild]`, and switched `.github/workflows/ci.yml` and `.github/workflows/publish.yml` to `pnpm/action-setup@v4` (`version: 10.26.2`) with `actions/setup-node@v4` `cache: "pnpm"` to resolve `ERR_PNPM_IGNORED_BUILDS` on `esbuild` (`#13`).
 
 ### Version 0.1.30 - 2026-11-21
 
