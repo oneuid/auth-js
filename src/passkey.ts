@@ -1,93 +1,112 @@
 import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 import { AuthConfig, TokenResponse } from './types';
 import { OneUID } from './client';
+import { AuthError, parseError } from './errors';
 
 export class PasskeyClient {
-  constructor(private config: AuthConfig, private root: OneUID) {}
+  constructor(private config: AuthConfig & { baseURL: string }, private root: OneUID) {}
 
   /**
-   * Register a new passkey (requires user to be already authenticated)
+   * Registers a new passkey (requires user to be already authenticated).
    */
   async register(name: string): Promise<void> {
     const token = await this.root.getAccessToken();
-    if (!token) throw new Error("Must be authenticated to register a passkey");
+    if (!token) throw new AuthError('unauthenticated', 'Must be authenticated to register a passkey.');
 
-    // 1. Get challenge
     const challengeRes = await fetch(`${this.config.baseURL}/v1/auth/passkey/register/challenge/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ name })
+      body: JSON.stringify({ name }),
     });
-    
-    if (!challengeRes.ok) throw new Error("Failed to get registration challenge");
+
+    if (!challengeRes.ok) {
+      const err = await challengeRes.json().catch(() => ({}));
+      throw new AuthError(
+        'passkey_challenge_failed',
+        parseError(err, `Failed to get passkey registration challenge (${challengeRes.status}).`),
+        challengeRes.status
+      );
+    }
     const options = await challengeRes.json();
 
-    // 2. Browser WebAuthn prompt
     let authResp;
     try {
       authResp = await startRegistration({ optionsJSON: options });
     } catch (error) {
-      throw new Error(`Passkey registration cancelled or failed: ${error}`);
+      const msg = error instanceof Error ? error.message : 'Passkey registration cancelled or failed.';
+      throw new AuthError('passkey_cancelled', parseError(msg, 'Passkey registration cancelled or failed.'));
     }
 
-    // 3. Verify
     const verifyRes = await fetch(`${this.config.baseURL}/v1/auth/passkey/register/verify/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({
         credential: authResp,
-        device_name: name
-      })
+        device_name: name,
+      }),
     });
 
     if (!verifyRes.ok) {
       const err = await verifyRes.json().catch(() => ({}));
-      throw new Error(err.error || "Failed to verify passkey registration");
+      throw new AuthError(
+        'passkey_register_failed',
+        parseError(err, `Failed to verify passkey registration (${verifyRes.status}).`),
+        verifyRes.status
+      );
     }
   }
 
   /**
-   * Login using a passkey (Passwordless)
+   * Authenticates using a passwordless WebAuthn passkey.
    */
   async login(email?: string): Promise<TokenResponse> {
-    // 1. Get challenge
     const challengeRes = await fetch(`${this.config.baseURL}/v1/auth/passkey/login/challenge/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
+      body: JSON.stringify({ email }),
     });
 
-    if (!challengeRes.ok) throw new Error("Failed to get login challenge");
+    if (!challengeRes.ok) {
+      const err = await challengeRes.json().catch(() => ({}));
+      throw new AuthError(
+        'passkey_challenge_failed',
+        parseError(err, `Failed to get passkey login challenge (${challengeRes.status}).`),
+        challengeRes.status
+      );
+    }
     const options = await challengeRes.json();
 
-    // 2. Browser WebAuthn prompt
     let authResp;
     try {
       authResp = await startAuthentication({ optionsJSON: options });
     } catch (error) {
-      throw new Error(`Passkey login cancelled or failed: ${error}`);
+      const msg = error instanceof Error ? error.message : 'Passkey authentication cancelled or failed.';
+      throw new AuthError('passkey_cancelled', parseError(msg, 'Passkey authentication cancelled or failed.'));
     }
 
-    // 3. Verify and get tokens
     const verifyRes = await fetch(`${this.config.baseURL}/v1/auth/passkey/login/verify/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         auth_session_id: options.auth_session_id,
         credential: authResp,
-        client_id: this.config.clientId
-      })
+        client_id: this.config.clientId,
+      }),
     });
 
     if (!verifyRes.ok) {
       const err = await verifyRes.json().catch(() => ({}));
-      throw new Error(err.error || "Failed to verify passkey login");
+      throw new AuthError(
+        'passkey_login_failed',
+        parseError(err, `Failed to verify passkey login (${verifyRes.status}).`),
+        verifyRes.status
+      );
     }
 
     const tokens: TokenResponse = await verifyRes.json();

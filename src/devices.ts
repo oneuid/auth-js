@@ -1,8 +1,9 @@
 import { AuthConfig } from './types';
 import { OneUID } from './client';
+import { AuthError, parseError } from './errors';
 
 export class DevicesClient {
-  constructor(private config: AuthConfig, private root: OneUID) {}
+  constructor(private config: AuthConfig & { baseURL: string }, private root: OneUID) {}
 
   /**
    * Registers a new sovereign device as an HSM.
@@ -14,24 +15,28 @@ export class DevicesClient {
     publicKey: string;
   }): Promise<{ status: string; message: string }> {
     const token = await this.root.getAccessToken();
-    if (!token) throw new Error("Must be authenticated to register a device");
+    if (!token) throw new AuthError('unauthenticated', 'Must be authenticated to register a device.');
 
     const response = await fetch(`${this.config.baseURL}/v1/auth/devices/register/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({
         device_id: params.deviceId,
         device_name: params.deviceName,
-        public_key: params.publicKey
-      })
+        public_key: params.publicKey,
+      }),
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.error || `Device registration failed: ${response.statusText}`);
+      throw new AuthError(
+        'device_register_failed',
+        parseError(errorData, `Device registration failed (${response.status}).`),
+        response.status
+      );
     }
 
     return response.json();
@@ -47,24 +52,28 @@ export class DevicesClient {
     signature: string;
   }): Promise<{ status: string; message: string }> {
     const token = await this.root.getAccessToken();
-    if (!token) throw new Error("Must be authenticated to verify a device");
+    if (!token) throw new AuthError('unauthenticated', 'Must be authenticated to verify a device.');
 
     const response = await fetch(`${this.config.baseURL}/v1/auth/devices/verify/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({
         target_device_id: params.targetDeviceId,
         verifying_device_id: params.verifyingDeviceId,
-        signature: params.signature
-      })
+        signature: params.signature,
+      }),
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.error || `Device verification failed: ${response.statusText}`);
+      throw new AuthError(
+        'device_verify_failed',
+        parseError(errorData, `Device verification failed (${response.status}).`),
+        response.status
+      );
     }
 
     return response.json();

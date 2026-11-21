@@ -5,6 +5,8 @@ import crypto from 'node:crypto';
 import {
   OneUID,
   AuthError,
+  getAuthErrorMessage,
+  SUPPORTED_LOCALES,
   MemoryStorageAdapter,
   LocalStorageAdapter,
   importPublicKey,
@@ -964,3 +966,230 @@ test('Issue #10: renderButton uses OIDC PKCE authorize flow (not /login/), enfor
     await mock.close();
   }
 });
+
+test('Issue #6: config-object storage, second-arg override, named adapters, and issuer/apiURL separation', async () => {
+  const { jwk, privatePem } = generateTestRsaKeypair();
+  let apiCalls = 0;
+
+  const issuerMock = await createMockServer({
+    'GET /.well-known/openid-configuration': ({ res }) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          issuer: issuerMock.baseURL,
+          authorization_endpoint: `${issuerMock.baseURL}/oauth/authorize`,
+          token_endpoint: `${issuerMock.baseURL}/oauth/token`,
+          jwks_uri: `${issuerMock.baseURL}/oauth/certs`,
+          revocation_endpoint: `${issuerMock.baseURL}/oauth/revoke`,
+        })
+      );
+    },
+    'GET /oauth/certs': ({ res }) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ keys: [jwk] }));
+    },
+  });
+
+  const apiMock = await createMockServer({
+    'GET /v1/auth/me/': ({ res }) => {
+      apiCalls += 1;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ id: 'u-1', uid: 'u-1', sovereign_id: 'sov-1', username: 'alice', first_name: 'Alice', last_name: 'One' }));
+    },
+  });
+
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const jwt = signRs256(
+      privatePem,
+      { alg: 'RS256', kid: jwk.kid },
+      { iss: issuerMock.baseURL, sub: 'u-1', aud: 'cfg-client', exp: now + 300 }
+    );
+
+    // 1. Storage passed in AuthConfig object is honored
+    const configStorage = new MemoryStorageAdapter();
+    const authFromConfig = new OneUID({
+      issuer: issuerMock.baseURL,
+      apiURL: apiMock.baseURL,
+      clientId: 'cfg-client',
+      storage: configStorage,
+    });
+    await authFromConfig.persistTokens({ access_token: jwt, expires_in: 300 });
+    assert.equal(await authFromConfig.getAccessToken(), jwt);
+    assert.equal(configStorage.getItem('oneuid:cfg-client:access_token'), jwt);
+
+    // OIDC discovery uses issuerMock while resource API uses apiMock
+    const started = await authFromConfig.startAuthorization('https://app.example.com/cb');
+    assert.ok(started.url.startsWith(`${issuerMock.baseURL}/oauth/authorize`));
+    const profile = await authFromConfig.getProfile();
+    assert.equal(profile.username, 'alice');
+    assert.equal(apiCalls, 1);
+
+    // 2. Explicit second constructor argument overrides config.storage
+    const overrideStorage = new MemoryStorageAdapter();
+    const authOverridden = new OneUID(
+      { baseURL: issuerMock.baseURL, clientId: 'cfg-client', storage: configStorage },
+      overrideStorage
+    );
+    await authOverridden.persistTokens({ access_token: jwt, expires_in: 300 });
+    assert.equal(overrideStorage.getItem('oneuid:cfg-client:access_token'), jwt);
+  } finally {
+    await issuerMock.close();
+    await apiMock.close();
+  }
+});
+
+test('Issue #11: typed AuthError.safeMessage across subclients, session.list(), not_implemented stubs, and 14-locale error copy', async () => {
+  const { jwk, privatePem } = generateTestRsaKeypair();
+  const mock = await createMockServer({
+    'GET /.well-known/openid-configuration': ({ res }) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ issuer: mock.baseURL, jwks_uri: `${mock.baseURL}/oauth/certs` }));
+    },
+    'GET /oauth/certs': ({ res }) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ keys: [jwk] }));
+    },
+    'GET /v1/auth/sessions/': ({ res }) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          results: [
+            {
+              id: 'sess-1',
+              application: 'Trip Express',
+              client_id: 'trip-web',
+              scope: 'openid profile email',
+              created_at: '2026-11-21T00:00:00Z',
+              expires_at: '2026-12-21T00:00:00Z',
+              is_current: true,
+            },
+          ],
+        })
+      );
+    },
+    'POST /v1/auth/devices/register/': ({ res }) => {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ detail: 'Invalid public key; access_token: "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxIn0.sig"' }));
+    },
+    'POST /v1/auth/recovery/login/': ({ res }) => {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid recovery code' }));
+    },
+  });
+
+  try {
+    const auth = new OneUID({ baseURL: mock.baseURL, clientId: 'settings-client' });
+
+    // Unauthenticated passkey/recovery/devices throw typed AuthError
+    await assert.rejects(
+      () => auth.passkey.register('MacBook'),
+      (err) => err instanceof AuthError && err.code === 'unauthenticated' && err.safeMessage.length > 0
+    );
+    await assert.rejects(
+      () => auth.recovery.generate(),
+      (err) => err instanceof AuthError && err.code === 'unauthenticated'
+    );
+
+    const now = Math.floor(Date.now() / 1000);
+    const jwt = signRs256(privatePem, { alg: 'RS256', kid: jwk.kid }, { iss: mock.baseURL, aud: 'settings-client', exp: now + 300 });
+    await auth.persistTokens({ access_token: jwt, expires_in: 300 });
+
+    // session.list() returns active sessions
+    const sessions = await auth.listSessions();
+    assert.equal(sessions.length, 1);
+    assert.equal(sessions[0].application, 'Trip Express');
+    assert.equal(sessions[0].is_current, true);
+
+    // devices.register and recovery.login throw typed AuthError with redacted safeMessage
+    await assert.rejects(
+      () => auth.devices.register({ deviceId: 'd1', deviceName: 'Phone', publicKey: 'bad' }),
+      (err) => err instanceof AuthError && err.code === 'device_register_failed' && err.status === 400 && !err.safeMessage.includes('eyJ')
+    );
+    await assert.rejects(
+      () => auth.recovery.login('u@example.com', '000000'),
+      (err) => err instanceof AuthError && err.code === 'recovery_login_failed' && err.status === 401
+    );
+
+    // deleteAccount and exportData fail closed with stable not_implemented code
+    await assert.rejects(
+      () => auth.deleteAccount(),
+      (err) => err instanceof AuthError && err.code === 'not_implemented' && err.status === 501
+    );
+    await assert.rejects(
+      () => auth.exportData(),
+      (err) => err instanceof AuthError && err.code === 'not_implemented' && err.status === 501
+    );
+
+    // 14-locale error recovery copy
+    assert.equal(SUPPORTED_LOCALES.length, 14);
+    for (const loc of SUPPORTED_LOCALES) {
+      const ui = getAuthErrorMessage('access_denied', loc);
+      assert.ok(ui.message.length > 0);
+      assert.ok(ui.retryLabel.length > 0);
+    }
+  } finally {
+    await mock.close();
+  }
+});
+
+test('Issue #12: renderButton localizes google, facebook, apple, and uid across all 14 locales with Arabic RTL and brand theme', async () => {
+  const dom = createMockDom();
+  await withMockBrowser(dom, async () => {
+    const auth = new OneUID({ baseURL: 'https://auth.uid.one', clientId: 'i18n-client' });
+
+    const providers = ['uid', 'google', 'facebook', 'apple'];
+    for (const provider of providers) {
+      const seenLabels = new Set();
+      for (const locale of SUPPORTED_LOCALES) {
+        const id = `btn-${provider}-${locale}`;
+        const container = dom.registerContainer(id);
+        auth.renderButton(id, {
+          provider,
+          redirectUri: 'https://app.example.com/cb',
+          locale,
+          theme: locale === 'ar' ? 'dark' : 'light',
+        });
+        const wrap = container.children[0];
+        const btn = wrap.children[0];
+        const text = btn.children[1].textContent;
+        assert.ok(text.length > 0, `Missing label for ${provider} in ${locale}`);
+        seenLabels.add(text);
+        if (locale === 'ar') {
+          assert.equal(wrap.dir, 'rtl');
+          assert.equal(btn.dir, 'rtl');
+        } else {
+          assert.equal(wrap.dir, '');
+        }
+      }
+      // Every locale has localized text (not stuck on English)
+      assert.ok(seenLabels.size >= 12, `Expected localized labels for ${provider}`);
+    }
+
+    // Verify vi & ar buttons in light, dark, and brand themes + custom label override
+    for (const locale of ['vi', 'ar']) {
+      for (const theme of ['light', 'dark', 'brand']) {
+        const id = `btn-check-${locale}-${theme}`;
+        const container = dom.registerContainer(id);
+        auth.renderButton(id, {
+          provider: 'google',
+          redirectUri: 'https://app.example.com/cb',
+          locale,
+          theme,
+        });
+        const btn = container.children[0].children[0];
+        assert.ok(btn.className.includes(`oneuid-btn--${theme}`));
+      }
+    }
+
+    const customContainer = dom.registerContainer('btn-custom');
+    auth.renderButton('btn-custom', {
+      provider: 'apple',
+      redirectUri: 'https://app.example.com/cb',
+      locale: 'vi',
+      label: 'Tiếp tục với Apple',
+    });
+    assert.equal(customContainer.children[0].children[0].children[1].textContent, 'Tiếp tục với Apple');
+  });
+});
+

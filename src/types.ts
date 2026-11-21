@@ -136,6 +136,22 @@ export interface ChallengePollOptions {
   codeVerifier?: string;
 }
 
+export interface ActiveSession {
+  id: string;
+  application: string;
+  client_id: string;
+  scope: string;
+  created_at: string;
+  expires_at: string | null;
+  is_current: boolean;
+}
+
+export type AuthCallbackState =
+  | { status: 'idle' }
+  | { status: 'completing' }
+  | { status: 'authenticated'; tokens: TokenResponse }
+  | { status: 'error'; code: string; message: string; retryable: boolean };
+
 export interface AuthConfig {
   clientId: string;
   /**
@@ -144,11 +160,13 @@ export interface AuthConfig {
    */
   clientSecret?: string;
   /**
-   * HTTPS base URL (e.g., 'https://auth.uid.one').
+   * HTTPS base URL (defaults to 'https://auth.uid.one').
    * Plain HTTP is allowed only for localhost/127.0.0.1 development.
    */
-  baseURL: string;
-  /** Optional explicit OIDC issuer override (defaults to discovered issuer). */
+  baseURL?: string;
+  /** Optional resource API host override (e.g., 'https://api.uid.one'). Defaults to baseURL. */
+  apiURL?: string;
+  /** Optional explicit OIDC issuer override (defaults to discovered issuer or 'https://auth.uid.one'). */
   issuer?: string;
   /** Optional explicit JWKS URI override (defaults to discovered jwks_uri). */
   jwksUri?: string;

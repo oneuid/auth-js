@@ -1,4 +1,5 @@
 import {
+  ActiveSession,
   AuthConfig,
   ChallengeApproveOptions,
   ChallengeMetadata,
@@ -29,7 +30,7 @@ function validateChallengeDomain(domain: string): string {
 export class SessionClient {
   private inspectedChallenges = new Map<string, ChallengeMetadata>();
 
-  constructor(private config: AuthConfig, private root: OneUID) {}
+  constructor(private config: AuthConfig & { baseURL: string }, private root: OneUID) {}
 
   private get baseURL(): string {
     return this.config.baseURL.replace(/\/$/, '');
@@ -423,6 +424,32 @@ export class SessionClient {
     }
 
     return res.json();
+  }
+
+  /**
+   * Lists active OAuth sessions for the authenticated user via GET /v1/auth/sessions/.
+   */
+  async list(): Promise<ActiveSession[]> {
+    const token = await this.root.getAccessToken();
+    if (!token) throw new AuthError('unauthenticated', 'Must be authenticated to list active sessions.');
+
+    const res = await fetch(`${this.baseURL}/v1/auth/sessions/`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new AuthError('sessions_fetch_failed', parseError(err, 'Failed to list active sessions.'), res.status);
+    }
+
+    const data = (await res.json()) as ActiveSession[] | { results?: ActiveSession[] };
+    if (Array.isArray(data)) {
+      return data;
+    }
+    return Array.isArray(data.results) ? data.results : [];
   }
 
   /**

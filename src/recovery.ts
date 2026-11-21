@@ -1,28 +1,33 @@
 import { AuthConfig, TokenResponse } from './types';
 import { OneUID } from './client';
+import { AuthError, parseError } from './errors';
 
 export class RecoveryClient {
-  constructor(private config: AuthConfig, private root: OneUID) {}
+  constructor(private config: AuthConfig & { baseURL: string }, private root: OneUID) {}
 
   /**
-   * Generates 10 backup codes (Requires user to be authenticated)
+   * Generates 10 backup codes (requires user to be authenticated).
    * Note: This replaces any unused existing codes.
    */
   async generate(): Promise<string[]> {
     const token = await this.root.getAccessToken();
-    if (!token) throw new Error("Must be authenticated to generate recovery codes");
+    if (!token) throw new AuthError('unauthenticated', 'Must be authenticated to generate recovery codes.');
 
     const res = await fetch(`${this.config.baseURL}/v1/auth/recovery/generate/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
+        'Authorization': `Bearer ${token}`,
+      },
     });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Failed to generate recovery codes");
+      throw new AuthError(
+        'recovery_generate_failed',
+        parseError(err, `Failed to generate recovery codes (${res.status}).`),
+        res.status
+      );
     }
 
     const data = await res.json();
@@ -30,7 +35,7 @@ export class RecoveryClient {
   }
 
   /**
-   * Login using a recovery code
+   * Signs in using a single-use recovery code.
    */
   async login(email: string, code: string): Promise<TokenResponse> {
     const res = await fetch(`${this.config.baseURL}/v1/auth/recovery/login/`, {
@@ -39,13 +44,17 @@ export class RecoveryClient {
       body: JSON.stringify({
         email,
         code,
-        client_id: this.config.clientId
-      })
+        client_id: this.config.clientId,
+      }),
     });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Invalid recovery code or email");
+      throw new AuthError(
+        'recovery_login_failed',
+        parseError(err, `Invalid recovery code or email (${res.status}).`),
+        res.status
+      );
     }
 
     const tokens: TokenResponse = await res.json();

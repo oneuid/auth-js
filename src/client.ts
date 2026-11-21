@@ -1,8 +1,10 @@
 import {
+  ActiveSession,
   AuthConfig,
   AuthorizationStartResult,
   AuthorizeOptions,
   ButtonOptions,
+  ButtonProvider,
   DeviceVaultKey,
   IdentifyResponse,
   OIDCDiscoveryDocument,
@@ -16,7 +18,14 @@ import {
   VerifyPasswordResult,
   VerifyResponse,
 } from './types';
-import { AuthError, parseError } from './errors';
+import {
+  AUTH_ERROR_MESSAGES,
+  AuthError,
+  RETRY_LABELS,
+  SupportedLocale,
+  parseError,
+  resolveLocale,
+} from './errors';
 import { JWKSCache, isJwtShape, parseJwtUnverified, verifyJwt } from './jwt';
 import {
   assertSafeUrl,
@@ -32,24 +41,74 @@ import { RecoveryClient } from './recovery';
 import { DevicesClient } from './devices';
 import { KMSClient, KMSOptions } from './kms';
 
-const BUTTON_LABELS: Record<string, string> = {
-  ar: 'تسجيل الدخول باستخدام OneUID',
-  de: 'Mit OneUID anmelden',
-  en: 'Sign in with OneUID',
-  es: 'Iniciar sesión con OneUID',
-  fr: 'Se connecter avec OneUID',
-  it: 'Accedi con OneUID',
-  ja: 'OneUIDでサインイン',
-  ko: 'OneUID로 로그인',
-  pt: 'Entrar com OneUID',
-  ru: 'Войти через OneUID',
-  th: 'เข้าสู่ระบบด้วย OneUID',
-  vi: 'Đăng nhập bằng OneUID',
-  'zh-hans': '使用 OneUID 登录',
-  'zh-hant': '使用 OneUID 登入',
+const PROVIDER_BUTTON_LABELS: Record<ButtonProvider, Record<SupportedLocale, string>> = {
+  uid: {
+    ar: 'تسجيل الدخول باستخدام OneUID',
+    de: 'Mit OneUID anmelden',
+    en: 'Sign in with OneUID',
+    es: 'Iniciar sesión con OneUID',
+    fr: 'Se connecter avec OneUID',
+    it: 'Accedi con OneUID',
+    ja: 'OneUIDでサインイン',
+    ko: 'OneUID로 로그인',
+    pt: 'Entrar com OneUID',
+    ru: 'Войти через OneUID',
+    th: 'เข้าสู่ระบบด้วย OneUID',
+    vi: 'Đăng nhập bằng OneUID',
+    'zh-hans': '使用 OneUID 登录',
+    'zh-hant': '使用 OneUID 登入',
+  },
+  google: {
+    ar: 'تسجيل الدخول باستخدام Google',
+    de: 'Mit Google anmelden',
+    en: 'Sign in with Google',
+    es: 'Iniciar sesión con Google',
+    fr: 'Se connecter avec Google',
+    it: 'Accedi con Google',
+    ja: 'Googleでサインイン',
+    ko: 'Google로 로그인',
+    pt: 'Entrar com Google',
+    ru: 'Войти через Google',
+    th: 'เข้าสู่ระบบด้วย Google',
+    vi: 'Đăng nhập bằng Google',
+    'zh-hans': '使用 Google 登录',
+    'zh-hant': '使用 Google 登入',
+  },
+  facebook: {
+    ar: 'تسجيل الدخول باستخدام Facebook',
+    de: 'Mit Facebook anmelden',
+    en: 'Sign in with Facebook',
+    es: 'Iniciar sesión con Facebook',
+    fr: 'Se connecter avec Facebook',
+    it: 'Accedi con Facebook',
+    ja: 'Facebookでサインイン',
+    ko: 'Facebook으로 로그인',
+    pt: 'Entrar com Facebook',
+    ru: 'Войти через Facebook',
+    th: 'เข้าสู่ระบบด้วย Facebook',
+    vi: 'Đăng nhập bằng Facebook',
+    'zh-hans': '使用 Facebook 登录',
+    'zh-hant': '使用 Facebook 登入',
+  },
+  apple: {
+    ar: 'تسجيل الدخول باستخدام Apple',
+    de: 'Mit Apple anmelden',
+    en: 'Sign in with Apple',
+    es: 'Iniciar sesión con Apple',
+    fr: 'Se connecter avec Apple',
+    it: 'Accedi con Apple',
+    ja: 'Appleでサインイン',
+    ko: 'Apple로 로그인',
+    pt: 'Entrar com Apple',
+    ru: 'Войти через Apple',
+    th: 'เข้าสู่ระบบด้วย Apple',
+    vi: 'Đăng nhập bằng Apple',
+    'zh-hans': '使用 Apple 登录',
+    'zh-hant': '使用 Apple 登入',
+  },
 };
 
-const REDIRECTING_LABELS: Record<string, string> = {
+const REDIRECTING_LABELS: Record<SupportedLocale, string> = {
   ar: 'جارٍ التوجيه إلى OneUID...',
   de: 'Weiterleitung zu OneUID...',
   en: 'Redirecting to OneUID...',
@@ -66,39 +125,7 @@ const REDIRECTING_LABELS: Record<string, string> = {
   'zh-hant': '正在跳轉至 OneUID...',
 };
 
-const UNAVAILABLE_LABELS: Record<string, string> = {
-  ar: 'تسجيل الدخول غير متاح حاليًا.',
-  de: 'Anmeldung ist nicht verfügbar.',
-  en: 'Sign-in is unavailable.',
-  es: 'El inicio de sesión no está disponible.',
-  fr: 'La connexion est indisponible.',
-  it: 'Accesso non disponibile.',
-  ja: 'サインインは現在利用できません。',
-  ko: '로그인을 사용할 수 없습니다.',
-  pt: 'O login está indisponível.',
-  ru: 'Вход недоступен.',
-  th: 'ไม่สามารถเข้าสู่ระบบได้ในขณะนี้',
-  vi: 'Đăng nhập hiện không khả dụng.',
-  'zh-hans': '登录暂不可用。',
-  'zh-hant': '登入暫不可用。',
-};
-
-const RETRY_LABELS: Record<string, string> = {
-  ar: 'إعادة المحاولة',
-  de: 'Erneut versuchen',
-  en: 'Retry',
-  es: 'Reintentar',
-  fr: 'Réessayer',
-  it: 'Riprova',
-  ja: '再試行',
-  ko: '다시 시도',
-  pt: 'Tentar novamente',
-  ru: 'Повторить',
-  th: 'ลองอีกครั้ง',
-  vi: 'Thử lại',
-  'zh-hans': '重试',
-  'zh-hant': '重試',
-};
+const UNAVAILABLE_LABELS = AUTH_ERROR_MESSAGES.unavailable;
 
 const SHIELD_PATH =
   'M 256 24 L 444 101 C 458.5 107 468 121 468 137 V 248 C 468 370 378 449 256 488 C 134 449 44 370 44 248 V 137 C 44 121 53.5 107 68 101 L 256 24 Z M 256 142.0 C 285.8 142.0 310.0 166.2 310.0 196.0 C 310.0 216.9 298.1 235.0 282.24 243.2 L 289.37 334.6 C 289.37 353.0 274.4 368.0 256.0 368.0 C 237.6 368.0 222.63 353.0 222.63 334.6 L 229.76 243.2 C 213.9 235.0 202.0 216.9 202.0 196.0 C 202.0 166.2 226.2 142.0 256.0 142.0 Z';
@@ -260,31 +287,6 @@ interface StoredAuthTransaction {
   createdAt: number;
 }
 
-function resolveLocale(locale?: string): string {
-  const raw = (
-    locale ||
-    (typeof document !== 'undefined' ? document.documentElement?.lang : '') ||
-    (typeof navigator !== 'undefined' ? navigator.language : '') ||
-    'en'
-  )
-    .trim()
-    .toLowerCase()
-    .replace(/_/g, '-');
-
-  if (!raw) return 'en';
-  if (BUTTON_LABELS[raw]) return raw;
-
-  if (raw.startsWith('zh')) {
-    if (raw.includes('hant') || raw.includes('tw') || raw.includes('hk') || raw.includes('mo')) {
-      return 'zh-hant';
-    }
-    return 'zh-hans';
-  }
-
-  const base = raw.split('-')[0];
-  return BUTTON_LABELS[base] ? base : 'en';
-}
-
 function isTokenResponseObject(value: unknown): value is TokenResponse {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;
@@ -293,8 +295,11 @@ function isTokenResponseObject(value: unknown): value is TokenResponse {
   return typeof obj.access_token === 'string' && obj.access_token.trim().length > 0;
 }
 
+const DEFAULT_ISSUER_URL = 'https://auth.uid.one';
+
 export class OneUID {
-  private config: AuthConfig;
+  private config: AuthConfig & { baseURL: string };
+  private discoveryBaseURL: string;
   private storage: StorageAdapter;
   private txStorage: StorageAdapter;
   private jwksCache = new JWKSCache();
@@ -320,15 +325,26 @@ export class OneUID {
       throw new AuthError('invalid_config', 'AuthConfig.clientId is required.');
     }
 
-    const safeBase = assertSafeUrl(config.baseURL, 'baseURL');
-    const normalizedBaseURL = safeBase.toString().replace(/\/$/, '');
-
-    if (config.issuer) {
-      assertSafeUrl(config.issuer, 'issuer');
+    const rawResourceBase = config.apiURL || config.baseURL || config.issuer || DEFAULT_ISSUER_URL;
+    if (config.baseURL !== undefined) {
+      assertSafeUrl(config.baseURL, 'baseURL');
     }
+    if (config.apiURL !== undefined) {
+      assertSafeUrl(config.apiURL, 'apiURL');
+    }
+    const safeResourceBase = assertSafeUrl(rawResourceBase, config.apiURL ? 'apiURL' : 'baseURL');
+    const normalizedBaseURL = safeResourceBase.toString().replace(/\/$/, '');
+
+    const normalizedIssuer = config.issuer
+      ? assertSafeUrl(config.issuer, 'issuer').toString().replace(/\/$/, '')
+      : undefined;
     if (config.jwksUri) {
       assertSafeUrl(config.jwksUri, 'jwksUri');
     }
+
+    this.discoveryBaseURL =
+      normalizedIssuer ||
+      (config.baseURL ? assertSafeUrl(config.baseURL, 'baseURL').toString().replace(/\/$/, '') : DEFAULT_ISSUER_URL);
 
     const inBrowser = isBrowserRuntime();
     let clientSecret = config.clientSecret;
@@ -344,6 +360,7 @@ export class OneUID {
       ...config,
       clientId: config.clientId.trim(),
       baseURL: normalizedBaseURL,
+      issuer: normalizedIssuer,
       clientSecret,
       allowUnsafePasswordGrant: inBrowser ? false : Boolean(config.allowUnsafePasswordGrant),
     };
@@ -397,14 +414,14 @@ export class OneUID {
   }
 
   private getFallbackDiscovery(): OIDCDiscoveryDocument {
-    const base = this.config.baseURL;
+    const issuerBase = this.config.issuer || this.discoveryBaseURL;
     return {
-      issuer: this.config.issuer ? this.config.issuer.replace(/\/$/, '') : base,
-      authorization_endpoint: `${base}/oauth/authorize`,
-      token_endpoint: `${base}/oauth/token`,
-      jwks_uri: this.config.jwksUri || `${base}/oauth/certs`,
-      revocation_endpoint: `${base}/oauth/revoke`,
-      userinfo_endpoint: `${base}/oauth/userinfo`,
+      issuer: issuerBase,
+      authorization_endpoint: `${issuerBase}/oauth/authorize`,
+      token_endpoint: `${issuerBase}/oauth/token`,
+      jwks_uri: this.config.jwksUri || `${issuerBase}/oauth/certs`,
+      revocation_endpoint: `${issuerBase}/oauth/revoke`,
+      userinfo_endpoint: `${issuerBase}/oauth/userinfo`,
       code_challenge_methods_supported: ['S256'],
     };
   }
@@ -423,7 +440,7 @@ export class OneUID {
     const promise = (async (): Promise<OIDCDiscoveryDocument> => {
       const fallback = this.getFallbackDiscovery();
       try {
-        const res = await fetch(`${this.config.baseURL}/.well-known/openid-configuration`, {
+        const res = await fetch(`${this.discoveryBaseURL}/.well-known/openid-configuration`, {
           method: 'GET',
           headers: { Accept: 'application/json' },
         });
@@ -448,8 +465,8 @@ export class OneUID {
           authorization_endpoint: safeEndpoint(doc.authorization_endpoint, fallback.authorization_endpoint),
           token_endpoint: safeEndpoint(doc.token_endpoint, fallback.token_endpoint),
           jwks_uri: this.config.jwksUri || safeEndpoint(doc.jwks_uri, fallback.jwks_uri),
-          revocation_endpoint: safeEndpoint(doc.revocation_endpoint, fallback.revocation_endpoint || `${this.config.baseURL}/oauth/revoke`),
-          userinfo_endpoint: safeEndpoint(doc.userinfo_endpoint, fallback.userinfo_endpoint || `${this.config.baseURL}/oauth/userinfo`),
+          revocation_endpoint: safeEndpoint(doc.revocation_endpoint, fallback.revocation_endpoint || `${this.discoveryBaseURL}/oauth/revoke`),
+          userinfo_endpoint: safeEndpoint(doc.userinfo_endpoint, fallback.userinfo_endpoint || `${this.discoveryBaseURL}/oauth/userinfo`),
           code_challenge_methods_supported: Array.isArray(doc.code_challenge_methods_supported)
             ? doc.code_challenge_methods_supported
             : fallback.code_challenge_methods_supported,
@@ -1023,7 +1040,7 @@ export class OneUID {
 
     if (accessToken || refreshToken) {
       const discovery = await this.discover().catch(() => this.getFallbackDiscovery());
-      const revokeUrl = discovery.revocation_endpoint || `${this.config.baseURL}/oauth/revoke`;
+      const revokeUrl = discovery.revocation_endpoint || `${this.discoveryBaseURL}/oauth/revoke`;
       const secret = this.getServerClientSecret();
 
       const revokeOne = async (token: string, hint: 'refresh_token' | 'access_token') => {
@@ -1084,10 +1101,41 @@ export class OneUID {
   }
 
   /**
+   * Lists active OAuth sessions for the authenticated user via GET /v1/auth/sessions/.
+   */
+  async listSessions(): Promise<ActiveSession[]> {
+    return this.session.list();
+  }
+
+  /**
    * Revokes active sessions across Relying Parties via POST /v1/auth/revoke/.
    */
   async revoke(options: { applicationId?: string; reason?: string; includeCurrent?: boolean } = {}) {
     return this.session.revoke(options);
+  }
+
+  /**
+   * Requests permanent deletion of the authenticated user's account.
+   * Currently throws `AuthError('not_implemented')` until the backend deletion API ships (oneuid/api.uid.one#9).
+   */
+  async deleteAccount(): Promise<never> {
+    throw new AuthError(
+      'not_implemented',
+      'Account deletion API is not available on the identity server yet (tracked in oneuid/api.uid.one#9).',
+      501
+    );
+  }
+
+  /**
+   * Requests a portable export of the authenticated user's personal identity data.
+   * Currently throws `AuthError('not_implemented')` until the backend export API ships (oneuid/api.uid.one#9).
+   */
+  async exportData(): Promise<never> {
+    throw new AuthError(
+      'not_implemented',
+      'Account data export API is not available on the identity server yet (tracked in oneuid/api.uid.one#9).',
+      501
+    );
   }
 
   /**
@@ -1236,7 +1284,7 @@ export class OneUID {
       throw new AuthError('unsupported_pkce_method', 'Plain PKCE is not supported; S256 is required.');
     }
 
-    const authEndpoint = this.cachedDiscovery?.authorization_endpoint || `${this.config.baseURL}/oauth/authorize`;
+    const authEndpoint = this.cachedDiscovery?.authorization_endpoint || `${this.discoveryBaseURL}/oauth/authorize`;
     const authUrl = new URL(authEndpoint);
     authUrl.searchParams.set('client_id', this.config.clientId);
     authUrl.searchParams.set('redirect_uri', safeRedirect);
@@ -1262,7 +1310,7 @@ export class OneUID {
   /**
    * Renders a Cryptographic Minimal OneUID sign-in button inside a DOM container.
    * Uses authorization code + PKCE S256 (`startAuthorization`) with >=44px hit targets,
-   * loading state, and inline retryable error feedback.
+   * 14-locale translations (including Arabic RTL), loading state, and inline retryable error feedback.
    */
   renderButton(containerId: string, options: ButtonOptions) {
     if (typeof document === 'undefined') return;
@@ -1306,19 +1354,17 @@ export class OneUID {
     }
 
     let iconSvg = '';
-    let defaultText = BUTTON_LABELS[lang] || BUTTON_LABELS.en;
+    const providerLabels = PROVIDER_BUTTON_LABELS[provider] || PROVIDER_BUTTON_LABELS.uid;
+    const defaultText = providerLabels[lang] || providerLabels.en;
 
     if (provider === 'google') {
       iconSvg = `<svg width="${iconPx}" height="${iconPx}" viewBox="0 0 24 24" aria-hidden="true" focusable="false" style="flex-shrink:0" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>`;
-      defaultText = 'Sign in with Google';
     } else if (provider === 'facebook') {
       const fbFill = tone === 'brand' ? '#FFFFFF' : '#1877F2';
       iconSvg = `<svg width="${iconPx}" height="${iconPx}" viewBox="0 0 24 24" fill="${fbFill}" aria-hidden="true" focusable="false" style="flex-shrink:0" xmlns="http://www.w3.org/2000/svg"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`;
-      defaultText = 'Sign in with Facebook';
     } else if (provider === 'apple') {
       const fill = tone === 'light' ? '#0F172A' : '#FFFFFF';
       iconSvg = `<svg width="${iconPx}" height="${iconPx}" viewBox="0 0 24 24" fill="${fill}" aria-hidden="true" focusable="false" style="flex-shrink:0" xmlns="http://www.w3.org/2000/svg"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-.1.77-1.07 1.25-.8 2.63-.73 3.58-.29.39.17 1.5.54 2.21 1.58-.57.35-1.71 1.01-1.71 2.37 0 1.63 1.33 2.2 1.34 2.2-.01.04-.21.72-.71 1.45zM15.97 4.17c.6-1.03.37-2.35-.33-3.17-.68-.8-1.92-1.05-3-.33-.66.69-.4 2.02.26 2.82.68.79 1.99.78 3.07-.32z"/></svg>`;
-      defaultText = 'Sign in with Apple';
     } else {
       const fill = tone === 'brand' ? '#FFFFFF' : '#2563EB';
       iconSvg = `<svg width="${iconPx}" height="${iconPx}" viewBox="0 0 512 512" fill="none" aria-hidden="true" focusable="false" style="flex-shrink:0" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" fill="${fill}" d="${SHIELD_PATH}"/></svg>`;

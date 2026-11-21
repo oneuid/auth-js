@@ -29,10 +29,11 @@ jobs:
           corepack enable
           pnpm install --frozen-lockfile
 
-      - name: Build & Typecheck SDK
+      - name: Build, Typecheck & Test SDK
         run: |
           pnpm run build
           pnpm run lint
+          pnpm test
 
       - name: Publish to npm Registry
         env:

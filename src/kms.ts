@@ -63,7 +63,7 @@ export class KMSClient {
   private keyringStorage?: KeyringStorageAdapter;
 
   constructor(
-    private config: AuthConfig,
+    private config: AuthConfig & { baseURL: string },
     private root: OneUID,
     options: KMSOptions = {}
   ) {
